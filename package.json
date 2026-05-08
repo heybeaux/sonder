@@ -1,0 +1,13 @@
+{
+  "name": "sonder",
+  "private": true,
+  "description": "Agent cognitive runtime — the event bus that binds memory, reasoning, governance, capability, and prediction into a unified agent mind.",
+  "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "adapters/*"
+  ],
+  "devDependencies": {
+    "openspec": "github:Fission-AI/OpenSpec"
+  }
+}

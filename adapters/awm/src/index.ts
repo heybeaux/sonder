@@ -1,22 +1,25 @@
 import type { SonderAdapter, SonderEvent, IntentContext } from '@sonder/core';
 
+export type AWMOutcome = 'pass' | 'revise' | 'fail';
+
 export interface AWMIntentSnapshot {
-  /** The action being taken */
+  /** The action/step type being taken (e.g. 'creative-director', 'red-team') */
   action: string;
-  /** AWM StepTrace reference ID */
+  /** AWM StepTrace traceId reference */
   step_trace_id: string;
-  /** Whether this step was skipped due to high prediction confidence */
+  /** Whether AWM recommended skipping this step (high confidence, output unchanged) */
   skipped: boolean;
-  /** Reason for skip, if skipped */
+  /** Reason for skip if skipped=true */
   skip_reason?: string;
-  /** Whether an approval gate pre-injected constraints for this action */
+  /** Whether approval gate pre-injected constraints into this step's prompt */
   constraint_injected: boolean;
 }
 
 export interface AWMAdapterConfig {
   /**
-   * Callback to retrieve the current AWM intent for the agent's next action.
-   * Return null if AWM has not resolved an intent yet.
+   * Callback to retrieve the current AWM intent snapshot before a step executes.
+   * Maps from Oracle.predict() result + StepTrace context.
+   * Return null if AWM has not resolved an intent for this step.
    */
   getCurrentIntent(): AWMIntentSnapshot | null;
 }
@@ -57,8 +60,9 @@ export class AwmAdapter implements SonderAdapter {
   }
 
   async observe(event: SonderEvent): Promise<void> {
-    // Future: close the learning loop by reading LeWM prediction results
-    // from events and updating AWM's outcome models.
+    // Future: close the learning loop — read LeWM prediction results and
+    // Lattice governance violations from events, call Oracle.recordTrace()
+    // to update Beta distribution beliefs for this step type.
     void event;
   }
 }

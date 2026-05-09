@@ -1,0 +1,23 @@
+{
+  "name": "@sonder/benchmarks",
+  "version": "0.0.1",
+  "description": "Performance benchmarks for @sonder/core",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/bench.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@sonder/core": "workspace:*",
+    "@sonder/adapter-lattice": "workspace:*",
+    "@sonder/adapter-engram": "workspace:*",
+    "@sonder/adapter-parliament": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}

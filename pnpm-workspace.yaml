@@ -2,3 +2,4 @@ packages:
   - 'packages/*'
   - 'adapters/*'
   - 'examples/*'
+  - 'benchmarks'

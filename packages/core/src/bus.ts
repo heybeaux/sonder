@@ -1,7 +1,16 @@
-import type { SonderEvent, EventFilter } from './types/event.js';
+import type { SonderEvent, EventFilter, GovernanceContext, MemoryContext, ReasoningContext, CapabilityContext, PredictionContext, IntentContext } from './types/event.js';
 import type { SonderAdapter } from './types/adapter.js';
 import { createEventId } from './ulid.js';
 import { AuditLog } from './audit.js';
+
+const DEFAULTS: Pick<SonderEvent, 'capabilities' | 'memory' | 'reasoning' | 'governance' | 'prediction' | 'intent'> = {
+  capabilities: { mounted: [], resolution: {}, budget_used: 0, budget_limit: 0 } satisfies CapabilityContext,
+  memory:       { refs: [], confidence: 0 } satisfies MemoryContext,
+  reasoning:    { model: '', neurotypes: [], consensus: false, dissent: [], osi: 0, rounds: 0 } satisfies ReasoningContext,
+  governance:   { contract_id: '', validated: false, l1_pass: false, l2_pass: false, l3_pass: false, violations: [], circuit_state: 'closed' } satisfies GovernanceContext,
+  prediction:   { outcome: '', confidence: 0, alpha: 1, beta: 1, model_id: '' } satisfies PredictionContext,
+  intent:       { action: '', step_trace_id: '', skipped: false, constraint_injected: false } satisfies IntentContext,
+};
 
 type EventHandler = (event: SonderEvent) => void;
 
@@ -41,6 +50,7 @@ export class SonderBus {
       Partial<Omit<SonderEvent, 'id' | 'version' | 'timestamp'>>,
   ): Promise<SonderEvent> {
     let partial: Partial<SonderEvent> = {
+      ...DEFAULTS,
       ...base,
       id: createEventId(),
       version: '1',

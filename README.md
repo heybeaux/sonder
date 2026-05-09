@@ -1,132 +1,78 @@
-# Sonder
+# Sonder: AI Agent Cognitive Runtime
 
-> *sonder* (n.) — the realization that each passerby has a life as vivid and complex as one's own.
+Sonder is the event bus that binds six independent AI agent faculties — capability, memory, reasoning, governance, prediction, and intent — into a unified cognitive runtime. Every agent action emits a typed `SonderEvent` carrying structured context from all six faculties simultaneously, producing a queryable audit trail that answers what the agent knew, what it was authorized to do, and why it decided what it decided.
 
-Sonder is the cognitive runtime for AI agents. It is the event bus that binds six independent faculties — capability, memory, reasoning, governance, prediction, and intent — into something that resembles a unified mind.
+## Why It Exists
 
-It does not replace any of its constituent packages. It is the baseplate they snap onto.
+Multi-agent systems fail silently. Cemri et al. (2025) analyzed 1,600+ execution traces across 7 frameworks and found that ~79% of failures are coordination-related — specification gaps (~42%) and inter-agent misalignment (~37%) — versus only ~21% from base-model reasoning failures. State-of-the-art systems like ChatDev achieve only 25% baseline correctness. A single broken handoff cascades through a pipeline with no explanation and no way to diagnose root cause.
 
----
+The architectural gap is that every existing observability platform (LangSmith, Langfuse, Arize Phoenix, AgentOps) instruments the execution layer — timing, tokens, tool calls. None carry structured cognitive context: what memory was active, what the agent was permitted to do, what reasoning path was taken, whether the handoff was validated, what outcome was predicted. The OpenTelemetry GenAI SIG explicitly defers these fields to the application layer. Sonder is that layer, made infrastructure.
 
-## The Cognitive Stack
+## Core Architecture
 
-| Faculty | Package | Question answered |
+Sonder organizes agent cognition into six faculties:
+
+| Faculty | Package | Question |
 |---|---|---|
-| Can do | [ACR](https://github.com/heybeaux/acr) | What tools and capabilities does the agent have access to right now? |
-| Knows | [Engram](https://github.com/heybeaux/engram) | What has the agent learned, remembered, and consolidated? |
-| Thinks | [Parliament](https://github.com/heybeaux/parliament) | What does multi-model deliberation conclude? |
-| Did | [Lattice](https://github.com/heybeaux/lattice) | Were handoffs valid? What did the agent actually do? |
-| Thinks will happen | [LeWM](https://github.com/heybeaux/lewm) | What outcomes does the agent predict? |
-| Will do | [AWM](https://github.com/heybeaux/awm) | What action is the agent about to take, optimized by prior outcomes? |
-
-Sonder is the envelope that carries all six answers on every agent event.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Agent Runtime                        │
-│                          (Sonder)                           │
-│                                                             │
-│   ┌──────────┐   ┌──────────┐   ┌──────────┐              │
-│   │  ACR     │   │  Engram  │   │Parliament │              │
-│   │ Can Do   │   │  Knows   │   │  Thinks   │              │
-│   └────┬─────┘   └────┬─────┘   └────┬──────┘              │
-│        │              │              │                       │
-│        └──────────────┴──────────────┘                      │
-│                       │                                     │
-│              ┌────────▼────────┐                            │
-│              │  Event Envelope │  ◄── the nervous system    │
-│              └────────┬────────┘                            │
-│                       │                                     │
-│        ┌──────────────┴──────────────┐                      │
-│        │              │              │                       │
-│   ┌────▼─────┐   ┌────▼─────┐   ┌───▼──────┐              │
-│   │ Lattice  │   │  LeWM    │   │   AWM    │              │
-│   │   Did    │   │Predicts  │   │ Will Do  │              │
-│   └──────────┘   └──────────┘   └──────────┘              │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
+| Can do | ACR | What capabilities are mounted at what resolution? |
+| Knows | Engram | What memory was consulted, and with what confidence? |
+| Thinks | Parliament | What did deliberation conclude, and was there dissent? |
+| Did | Lattice | Was the handoff valid against the state contract? |
+| Thinks will happen | LeWM | What outcome is predicted, with what Bayesian confidence? |
+| Will do | AWM | What action is planned, and what does the StepTrace show? |
 
 ## The Event Envelope
 
-Every agent action in Sonder emits a structured event. The envelope is the common language all packages speak:
+Every agent action produces a `SonderEvent` — a typed envelope carrying context from all six faculties:
 
 ```typescript
 interface SonderEvent {
-  id: string;                    // ULID — sortable, unique
-  agent_id: string;              // stable identity across sessions
-  task_id: string;               // groups related events
-  timestamp: string;             // ISO 8601
+  id: string;           // ULID
+  agent_id: string;
+  task_id: string;
+  parent_id?: string;   // causal chain
+  timestamp: string;    // ISO 8601 UTC
 
-  // ACR: capability context
-  capabilities: {
-    mounted: string[];           // active capability IDs
-    resolution: Record<string, 'index' | 'summary' | 'standard' | 'deep'>;
-  };
+  capabilities: { mounted: string[]; resolution: Record<string, LODLevel>; budget_used: number; budget_limit: number; };
+  memory:       { refs: string[]; query?: string; confidence: number; dream_cycle?: string; };
+  reasoning:    { model: string; neurotypes: string[]; consensus: boolean; dissent: string[]; osi: number; rounds: number; };
+  governance:   { contract_id: string; validated: boolean; l1_pass: boolean; l2_pass: boolean; l3_pass: boolean; violations: string[]; circuit_state: 'closed' | 'open' | 'half-open'; };
+  prediction:   { outcome: string; confidence: number; alpha: number; beta: number; model_id: string; };
+  intent:       { action: string; step_trace_id: string; skipped: boolean; skip_reason?: string; constraint_injected: boolean; };
 
-  // Engram: memory context
-  memory: {
-    refs: string[];              // memory IDs consulted
-    confidence: number;          // 0–1 retrieval confidence
-  };
-
-  // Parliament: reasoning context
-  reasoning: {
-    model: string;               // model that produced this action
-    consensus: boolean;          // did deliberation reach consensus?
-    dissent: string[];           // dissenting neurotype IDs if any
-  };
-
-  // Lattice: governance context
-  governance: {
-    contract_id: string;         // state contract that governed this handoff
-    validated: boolean;          // did L1/L2/L3 pass?
-    violations: string[];        // validation failure codes
-  };
-
-  // LeWM: prediction context
-  prediction: {
-    outcome: string;             // predicted outcome label
-    confidence: number;          // 0–1 Bayesian confidence
-  };
-
-  // AWM: intent context
-  intent: {
-    action: string;              // the action being taken
-    step_trace_id: string;       // AWM StepTrace reference
-    skip_reason?: string;        // if step was skipped on high confidence
-  };
-
-  payload: unknown;              // the actual event data
+  payload: unknown;
+  metadata?: Record<string, unknown>;
 }
 ```
 
----
+The audit log answers the five questions regulated industries require:
 
-## Why This Matters
+| Question | Field |
+|---|---|
+| What did the agent know? | `memory.refs` |
+| What was it authorized to do? | `capabilities.mounted` |
+| Why did it decide this? | `reasoning.*` |
+| Was the handoff valid? | `governance.validated`, `governance.violations` |
+| What did it predict? | `prediction.*` |
 
-Multi-agent systems fail silently. A single failed handoff can cascade across a pipeline with no audit trail, no explanation, and no way to diagnose root cause. Enterprises cannot deploy agents at scale when they cannot answer:
+## Regulatory Context
 
-- *Why did the agent make that decision?*
-- *What did it know when it acted?*
-- *Was the handoff valid?*
-- *What did it predict, and was it right?*
+Sonder's audit log directly addresses mandates taking effect in 2026:
 
-The Sonder envelope answers all four questions on every event. That is not just a developer convenience — it is an enterprise compliance story.
+- **EU AI Act Article 12 (August 2, 2026)**: High-risk AI systems must maintain logs sufficient to reconstruct decision context on regulatory demand. Non-compliance: up to €15M or 3% of global annual turnover.
+- **ESMA / MiFID II (in force)**: Firms must explain how AI impacts algorithm decisions to supervisors on request. 5-year record retention required.
+- **FINRA 2026**: Firms must reconstruct "the chain of reasoning an agent used if a trade or communication is flagged."
+- **HIPAA**: Each discrete AI action in a healthcare workflow requires timestamped, auditable logs including confidence scores and model version.
 
----
+No existing observability tool provides structured cognitive context for these requirements. Sonder does.
+
+## Theoretical Foundation
+
+Sonder is a computational instantiation of Global Workspace Theory (Baars, 1988) — the cognitive science model that consciousness functions as a shared broadcast substrate where all specialized modules receive the same context simultaneously. Each SonderEvent is that broadcast. The Memory/Parliament/AWM triad extends the BDI architecture (Rao & Georgeff, 1995). Governance and Prediction are first-class faculties absent from every classical cognitive architecture (ACT-R, SOAR, LIDA) and from the CoALA framework (Sumers et al., 2023) — these are Sonder's structural contributions to the design space.
 
 ## Status
 
-Early design phase. See [`openspec/changes/sonder-agent-runtime/`](./openspec/changes/sonder-agent-runtime/) for the full proposal, design, and implementation roadmap.
+Early design phase. Using OpenSpec for formal change documentation.
 
----
-
-## OpenSpec
-
-This project uses [OpenSpec](https://github.com/Fission-AI/OpenSpec) for change documentation.
+- [Proposal](openspec/changes/sonder-agent-runtime/proposal.md)
+- [Design](openspec/changes/sonder-agent-runtime/design.md)

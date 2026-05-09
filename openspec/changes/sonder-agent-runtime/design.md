@@ -176,14 +176,15 @@ This is a synchronous contribute phase followed by asynchronous observation. Tot
 
 The audit log is append-only and queryable. Every emitted SonderEvent is stored in full. The minimum queryable fields are agent_id, task_id, timestamp, validated, and violations.
 
-The audit log is the compliance artifact. It answers:
+The audit log is the compliance artifact. It answers the five questions regulated industries require:
 
-- *What did this agent know when it acted?* → `memory.refs`
-- *What was it allowed to do?* → `capabilities.mounted`
-- *What did it decide and why?* → `reasoning.*`
-- *Was the handoff valid?* → `governance.validated`, `governance.violations`
-- *What did it predict?* → `prediction.*`
-- *What did it intend to do?* → `intent.*`
+| Question | Field | Regulation |
+|---|---|---|
+| What did the agent know? | `memory.refs` | HIPAA, EU AI Act Art. 12 |
+| What was it authorized to do? | `capabilities.mounted` | FINRA 2026, MiFID II RTS 6 |
+| What did it decide and why? | `reasoning.*` | ESMA Feb 2026, FCA Consumer Duty |
+| Was the handoff valid? | `governance.validated`, `governance.violations` | EU AI Act Art. 12, NAIC Model Bulletin |
+| What did it predict? | `prediction.*` | SEC AI oversight, CFTC Oct 2024 Advisory |
 
 ## First Integration: Lattice + Engram
 
@@ -198,7 +199,7 @@ This pairing is chosen because:
 
 **Distributed message broker (Kafka/RabbitMQ):** Rejected. Adds infrastructure complexity without benefit for single-process agents. The event bus can be swapped for a broker in high-throughput multi-process deployments, but it should not be the default.
 
-**OpenTelemetry spans:** Considered as the envelope format. Rejected because OTEL spans are observability primitives, not cognitive context carriers. The SonderEvent has typed, semantic fields that OTEL lacks. Sonder can *export* to OTEL for APM integration, but the envelope itself is richer.
+**OpenTelemetry spans:** Considered as the envelope format. Rejected because OTEL spans are observability primitives, not cognitive context carriers. The OTel GenAI SIG explicitly defers cognitive context fields (memory state, governance context, reasoning chains, predicted outcomes, intent) to the application layer as out of scope for the standard. The SonderEvent has typed, semantic fields that OTel lacks. Sonder can *export* to OTel for APM integration, but the envelope itself is richer and serves a different purpose.
 
 **Single monorepo with merged packages:** Rejected. Each package must remain independently adoptable. Sonder is opt-in composition, not forced consolidation.
 
@@ -211,3 +212,5 @@ This pairing is chosen because:
 | Audit log write throughput | > 1,000 events/sec |
 | Audit log query latency (indexed) | < 50ms |
 | SDK bundle size | < 20KB gzipped |
+
+---

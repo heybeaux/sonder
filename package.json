@@ -3,11 +3,25 @@
   "private": true,
   "description": "Agent cognitive runtime — the event bus that binds memory, reasoning, governance, capability, and prediction into a unified agent mind.",
   "license": "MIT",
+  "packageManager": "pnpm@8.15.6",
   "workspaces": [
     "packages/*",
     "adapters/*"
   ],
+  "scripts": {
+    "build": "turbo build",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "dev": "turbo dev",
+    "clean": "turbo clean"
+  },
   "devDependencies": {
-    "openspec": "github:Fission-AI/OpenSpec"
+    "openspec": "github:Fission-AI/OpenSpec",
+    "turbo": "^2.9.12",
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "vitest": "^2.1.0"
   }
 }

@@ -1,4 +1,4 @@
-import type { SonderBus, SonderEvent } from '@heybeaux/sonder-core';
+import type { SonderBus, SonderEventAny } from '@heybeaux/sonder-core';
 
 export interface WithSonderOptions {
   bus: SonderBus;
@@ -8,8 +8,12 @@ export interface WithSonderOptions {
   taskId: string;
   /** Optional parent event ID for causal chaining */
   parentId?: string;
-  /** Called after each event is emitted — useful for logging or side effects */
-  onEvent?: (event: SonderEvent) => void;
+  /**
+   * Called after each event is emitted — useful for logging or side effects.
+   * Accepts both v1 (legacy `bus.emit`) and v2 (chain-piped `runtime.emit`)
+   * events; consumers discriminate on `event.version`.
+   */
+  onEvent?: (event: SonderEventAny) => void;
 }
 
 export type WrappedAgentFn<TInput, TOutput> = (input: TInput) => Promise<TOutput>;

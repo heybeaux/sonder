@@ -1,9 +1,23 @@
-import type { SonderEvent, EventFilter, GovernanceContext, MemoryContext, ReasoningContext, CapabilityContext, PredictionContext, IntentContext } from './types/event.js';
+import type {
+  SonderEvent,
+  SonderEventV1,
+  SonderEventV2,
+  SonderEventCore,
+  EventFilter,
+  GovernanceContext,
+  MemoryContext,
+  ReasoningContext,
+  CapabilityContext,
+  PredictionContext,
+  IntentContext,
+} from './types/event.js';
 import type { SonderAdapter } from './types/adapter.js';
 import { createEventId } from './ulid.js';
 import { AuditLog } from './audit.js';
 
-const DEFAULTS: Pick<SonderEvent, 'capabilities' | 'memory' | 'reasoning' | 'governance' | 'prediction' | 'intent'> = {
+const DEFAULTS: Pick<SonderEventCore,
+  'capabilities' | 'memory' | 'reasoning' | 'governance' | 'prediction' | 'intent'
+> = {
   capabilities: { mounted: [], resolution: {}, budget_used: 0, budget_limit: 0 } satisfies CapabilityContext,
   memory:       { refs: [], confidence: 0 } satisfies MemoryContext,
   reasoning:    { model: '', neurotypes: [], consensus: false, dissent: [], osi: 0, rounds: 0 } satisfies ReasoningContext,
@@ -13,16 +27,25 @@ const DEFAULTS: Pick<SonderEvent, 'capabilities' | 'memory' | 'reasoning' | 'gov
 };
 
 type EventHandler = (event: SonderEvent) => void;
+type LegacyEventHandler = (event: SonderEventV1) => void;
 
 export interface SonderBusOptions {
   dbPath?: string;
 }
 
+/**
+ * SonderBus — the v0.1 entry point. Still emits v1 events. The v2 emit
+ * pipeline (redact → enforce → validate-L0 → hash → sign → persist)
+ * lives in a separate chain-pipeline module that wraps the bus.
+ *
+ * Adapter contributors operate on `SonderEventCore` so the bus stays
+ * forward-compatible with v2 envelopes.
+ */
 export class SonderBus {
   private adapters: SonderAdapter[] = [];
-  private handlers = new Map<string, Set<EventHandler>>();
-  private anyHandlers = new Set<EventHandler>();
-  private audit: AuditLog;
+  private handlers = new Map<string, Set<LegacyEventHandler | EventHandler>>();
+  private anyHandlers = new Set<LegacyEventHandler | EventHandler>();
+  audit: AuditLog;
 
   constructor(options: SonderBusOptions = {}) {
     this.audit = new AuditLog(options.dbPath);
@@ -32,7 +55,7 @@ export class SonderBus {
     this.adapters.push(adapter);
   }
 
-  on(type: string, handler: EventHandler): () => void {
+  on(type: string, handler: EventHandler | LegacyEventHandler): () => void {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, new Set());
     }
@@ -40,33 +63,34 @@ export class SonderBus {
     return () => this.handlers.get(type)?.delete(handler);
   }
 
-  onAny(handler: EventHandler): () => void {
+  onAny(handler: EventHandler | LegacyEventHandler): () => void {
     this.anyHandlers.add(handler);
     return () => this.anyHandlers.delete(handler);
   }
 
-  async emit(
-    base: Pick<SonderEvent, 'agent_id' | 'task_id' | 'payload'> &
-      Partial<Omit<SonderEvent, 'id' | 'version' | 'timestamp'>>,
-  ): Promise<SonderEvent> {
-    let partial: Partial<SonderEvent> = {
+  /**
+   * Build a v1 envelope by running all adapter contributors. Pure-ish:
+   * the resulting object is suitable as input to the v2 chain pipeline.
+   * Used internally by `emit` and exposed for the chain pipeline.
+   */
+  async buildEnvelope(
+    base: Pick<SonderEventCore, 'agent_id' | 'task_id' | 'payload'> &
+      Partial<Omit<SonderEventCore, 'id' | 'timestamp'>>,
+  ): Promise<SonderEventV1> {
+    let partial: Partial<SonderEventCore> & { version?: '1' } = {
       ...DEFAULTS,
       ...base,
       id: createEventId(),
-      version: '1',
       timestamp: new Date().toISOString(),
     };
 
-    // Synchronous contribute phase — adapters run in parallel against the same
-    // snapshot, then contributions are merged by taking only the keys each
-    // adapter actually changed (i.e. keys that differ from the snapshot).
     const snapshot = partial;
     const contributions = await Promise.all(
       this.adapters.map((a) => a.contribute(snapshot)),
     );
     for (const contribution of contributions) {
-      const diff: Partial<SonderEvent> = {};
-      for (const key of Object.keys(contribution) as Array<keyof SonderEvent>) {
+      const diff: Partial<SonderEventCore> = {};
+      for (const key of Object.keys(contribution) as Array<keyof SonderEventCore>) {
         if (contribution[key] !== snapshot[key]) {
           (diff as Record<string, unknown>)[key] = contribution[key];
         }
@@ -74,7 +98,14 @@ export class SonderBus {
       partial = { ...partial, ...diff };
     }
 
-    const event = partial as SonderEvent;
+    return { ...(partial as SonderEventCore), version: '1' };
+  }
+
+  async emit(
+    base: Pick<SonderEventCore, 'agent_id' | 'task_id' | 'payload'> &
+      Partial<Omit<SonderEventCore, 'id' | 'timestamp'>>,
+  ): Promise<SonderEventV1> {
+    const event = await this.buildEnvelope(base);
 
     // Persist before notifying observers
     this.audit.write(event);
@@ -82,17 +113,35 @@ export class SonderBus {
     // Notify typed handlers
     const typed = this.handlers.get(event.intent?.action ?? '');
     if (typed) {
-      for (const h of typed) h(event);
+      for (const h of typed) (h as LegacyEventHandler)(event);
     }
-    for (const h of this.anyHandlers) h(event);
+    for (const h of this.anyHandlers) (h as LegacyEventHandler)(event);
 
-    // Async observe phase — fire and forget
-    void Promise.all(this.adapters.map((a) => a.observe(event)));
+    // Async observe phase — fire and forget. v1 events are passed through
+    // to `observe(SonderEvent)` adapters as-is; the v2-only fields will be
+    // absent and adapter implementations must guard on `event.version`.
+    void Promise.all(this.adapters.map((a) => a.observe(event as unknown as SonderEvent)));
+    /* eslint-disable-line @typescript-eslint/no-explicit-any */
 
     return event;
   }
 
-  query(filter: EventFilter): SonderEvent[] {
+  /**
+   * Persist an already-signed v2 event from the chain pipeline. Called by
+   * the v2 emit wrapper after redact/enforce/validate/hash/sign. The
+   * caller is responsible for running this inside `audit.immediate()`.
+   */
+  persistSigned(event: SonderEventV2): void {
+    this.audit.writeChain(event);
+    const typed = this.handlers.get(event.intent?.action ?? '');
+    if (typed) {
+      for (const h of typed) (h as EventHandler)(event);
+    }
+    for (const h of this.anyHandlers) (h as EventHandler)(event);
+    void Promise.all(this.adapters.map((a) => a.observe(event)));
+  }
+
+  query(filter: EventFilter) {
     return this.audit.query(filter);
   }
 

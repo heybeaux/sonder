@@ -1,6 +1,6 @@
 {
   "name": "@heybeaux/sonder-adapter-engram",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sonder adapter for engram",
   "license": "MIT",
   "type": "module",

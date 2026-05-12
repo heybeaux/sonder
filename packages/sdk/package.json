@@ -1,6 +1,6 @@
 {
   "name": "@heybeaux/sonder-sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Sonder SDK — createRuntime() factory and withSonder() HOC for framework-agnostic integration",
   "license": "MIT",
   "type": "module",

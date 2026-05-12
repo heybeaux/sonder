@@ -115,6 +115,23 @@ When the AuditLog contains a mix of v1 and v2 events:
 - `verify-chain` walks only events where `version === '2'`. Encountering a v1 event mid-walk emits one warning line and continues (not a chain break).
 - The chain genesis for an agent is the first v2 event for that agent.
 
+### R12 — L0 evidence enforcement at sign time
+
+The runtime MUST refuse to compute `chain_self_hash` or `signature` for any event whose `governance.tier` references `'L1'`, `'L2'`, or `'L3'` and whose `governance.evidence` is empty or absent. Refusal MUST raise `SignRefusedError('l0-evidence-missing')` BEFORE hashing.
+
+This implements Spec 1 (Lattice L0) R7 on the Sonder side. The check runs after redaction (so PII is already masked) but before hash/sign — the event is dropped, not persisted, and the chain does not advance.
+
+Events whose `governance.tier` is `'L0'`-only OR is absent (e.g., non-Lattice emitters during v0.2 migration) MUST be allowed through this check. The check fires only when L1/L2/L3 is claimed without corresponding evidence.
+
+### R13 — Governance schema (v2)
+
+`SonderEvent.governance` in v2 events MUST include all v1 fields PLUS two optional fields:
+
+- `tier?: string` — `+`-joined list of Lattice tiers that produced evidence (e.g., `'L0'`, `'L0+L1'`, `'L0+L1+L2'`). Absent for non-Lattice emitters.
+- `evidence?: PolicyEvidenceRow[]` — L0 per-rule evidence, shape re-exported from `@heybeaux/lattice-core`. Sonder MUST NOT redefine this type.
+
+When `tier` is set, the `mustNotRedact` allowlist applies to both `$.governance.tier` and `$.governance.evidence`. When `tier` is absent, both fields MAY be missing without triggering refusal.
+
 ## Non-goals
 
 - Cross-agent chain linkage.

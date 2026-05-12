@@ -4,13 +4,16 @@
 
 ```
 emit(event)
-  → redact(event)               // step 1: PII masking
-  → enforce(must-not-redact)    // step 2: refuse if audit-critical fields gone
-  → hash(redacted, prev_hash)   // step 3: chain hashes
-  → sign(redacted + hashes)     // step 4: ed25519
-  → persist                     // step 5: AuditLog INSERT (TX-serialized per agent_id)
+  → redact(event)                       // step 1: PII masking
+  → enforce(must-not-redact)            // step 2: refuse if audit-critical fields gone
+  → validateL0EvidenceOrThrow(event)    // step 3: enforce Spec 1 R7 (no sign without L0 evidence)
+  → hash(redacted, prev_hash)           // step 4: chain hashes
+  → sign(redacted + hashes)             // step 5: ed25519
+  → persist                             // step 6: AuditLog INSERT (TX-serialized per agent_id)
   → return signed event
 ```
+
+Step 3 (`validateL0EvidenceOrThrow`) implements Spec 1 R7. It throws `SignRefusedError('l0-evidence-missing')` when `governance.tier` references L1/L2/L3 but `governance.evidence` is empty/absent. Throwing here means: redaction happened (no leak) but nothing is hashed, signed, or persisted — the event is dropped with the caller responsible for surfacing the error.
 
 Any step's failure short-circuits the pipeline. The function `runtime.emit` is the only public surface; the steps are not individually exposed.
 
@@ -195,10 +198,17 @@ export interface SonderEvent {
   // ... existing v1 fields ...
   version: '2';
 
-  // NEW
+  // NEW (chain + signature)
   chain_prev_hash: string;
   chain_self_hash: string;
   signature: string;
+
+  governance: GovernanceContext & {
+    // NEW in v2 — surfaces Lattice L0 output (Spec 1 R7/R8).
+    // Required when Lattice runs upstream; absent for non-Lattice emitters.
+    tier?: string;                          // e.g. 'L0', 'L0+L1', 'L0+L1+L2'
+    evidence?: PolicyEvidenceRow[];         // L0 per-rule evidence; shape from @heybeaux/lattice-core
+  };
 
   metadata?: Record<string, unknown> & {
     redaction?: {
@@ -210,7 +220,13 @@ export interface SonderEvent {
 }
 ```
 
+`PolicyEvidenceRow` is re-exported from `@heybeaux/lattice-core`; Sonder MUST NOT redefine its shape.
+
 v1 events in storage remain readable; their `version` field stays `'1'` and they have no chain/signature. The verifier skips v1 events with a one-line warning.
+
+### Interaction with Spec 1's L0 signing invariant
+
+Spec 1 R7 requires the runtime to refuse to sign when `governance.tier` includes L1/L2/L3 but `governance.evidence` is empty. Sonder's `emit` pipeline (see "Pipeline order" above) MUST insert a `validateL0EvidenceOrThrow` step between redaction-refusal-check and hashing. If the check throws, the event is NOT persisted and no chain advancement occurs. Error: `SignRefusedError('l0-evidence-missing')`.
 
 ## What this does NOT do
 

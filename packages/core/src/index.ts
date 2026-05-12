@@ -46,4 +46,21 @@ export {
 } from './sign.js';
 export type { KeypairFile, LoadedKeypair } from './sign.js';
 
+export {
+  redactJson,
+  redactSonderEvent,
+  RedactionRefusedError,
+  DEFAULT_MUST_NOT_REDACT,
+  conditionalGovernanceFields,
+  validateMustNotRedactOverride,
+} from './redact.js';
+export type {
+  SensitivityLevel,
+  RedactJsonOptions,
+  RedactJsonResult,
+  RedactSonderEventOptions,
+  RedactSonderEventResult,
+  RedactionEvidenceBlock,
+} from './redact.js';
+
 export { createEventId } from './ulid.js';

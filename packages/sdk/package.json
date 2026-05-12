@@ -14,6 +14,9 @@
       "require": "./dist/index.cjs"
     }
   },
+  "bin": {
+    "sonder-verify-chain": "./dist/cli/verify-chain.cjs"
+  },
   "files": [
     "dist"
   ],

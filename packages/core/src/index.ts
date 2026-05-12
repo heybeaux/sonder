@@ -47,6 +47,12 @@ export {
 export type { KeypairFile, LoadedKeypair } from './sign.js';
 
 export {
+  genesisSeed,
+  readPrevHashForNextEvent,
+  stampChainHashes,
+} from './chain.js';
+
+export {
   redactJson,
   redactSonderEvent,
   RedactionRefusedError,

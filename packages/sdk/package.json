@@ -15,7 +15,8 @@
     }
   },
   "bin": {
-    "sonder-verify-chain": "./dist/cli/verify-chain.cjs"
+    "sonder-verify-chain": "./dist/cli/verify-chain.cjs",
+    "sonder-anchor": "./dist/cli/anchor.cjs"
   },
   "files": [
     "dist"

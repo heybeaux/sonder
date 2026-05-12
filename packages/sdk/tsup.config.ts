@@ -12,7 +12,10 @@ export default defineConfig([
   {
     // CLI entrypoints — CJS only (Node shebang scripts are most reliable as
     // CJS across pnpm bin shims) with a #! line prepended.
-    entry: { 'cli/verify-chain': 'src/cli/verify-chain.ts' },
+    entry: {
+      'cli/verify-chain': 'src/cli/verify-chain.ts',
+      'cli/anchor': 'src/cli/anchor.ts',
+    },
     format: ['cjs'],
     dts: false,
     sourcemap: true,

@@ -15,3 +15,10 @@ export type {
   VerifyMismatch,
   VerifyWarning,
 } from './verify-chain.js';
+
+export { buildAnchorManifest, serializeAnchorManifest } from './anchor.js';
+export type {
+  AnchorEntry,
+  AnchorManifest,
+  BuildAnchorManifestOptions,
+} from './anchor.js';

@@ -1,6 +1,6 @@
 {
   "name": "@heybeaux/sonder-sdk",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sonder SDK — createRuntime() factory and withSonder() HOC for framework-agnostic integration",
   "license": "MIT",
   "type": "module",
@@ -14,7 +14,9 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",

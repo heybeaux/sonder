@@ -1,6 +1,6 @@
 {
   "name": "@heybeaux/sonder-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Sonder event bus, envelope schema, and audit log",
   "license": "MIT",
   "type": "module",

@@ -1,12 +1,30 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { createRuntime } from '../runtime.js';
 import { withSonder } from '../with-sonder.js';
 
+function tmpDir() {
+  return mkdtempSync(join(tmpdir(), 'sonder-with-sonder-'));
+}
+
 describe('withSonder', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = tmpDir();
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  const mk = () => createRuntime({ keyPath: join(dir, 'key'), dbPath: join(dir, 'audit.db') });
+
   it('calls the wrapped function and returns its output', async () => {
-    const runtime = createRuntime();
+    const runtime = mk();
     const fn = vi.fn(async (x: number) => x * 2);
-    const wrapped = withSonder(fn, { bus: runtime.bus, agentId: 'a', taskId: 't' });
+    const wrapped = withSonder(fn, { runtime, agentId: 'a', taskId: 't' });
 
     const result = await wrapped(5);
     expect(result).toBe(10);
@@ -15,11 +33,11 @@ describe('withSonder', () => {
   });
 
   it('emits before and after events', async () => {
-    const runtime = createRuntime();
+    const runtime = mk();
     const events: string[] = [];
 
     const wrapped = withSonder(async (x: number) => x + 1, {
-      bus: runtime.bus,
+      runtime,
       agentId: 'agent-x',
       taskId: 'task-y',
       onEvent: (e) => events.push((e.payload as { phase: string }).phase),
@@ -31,11 +49,11 @@ describe('withSonder', () => {
   });
 
   it('after event has before event as parent_id', async () => {
-    const runtime = createRuntime();
-    const emitted: import('@heybeaux/sonder-core').SonderEvent[] = [];
+    const runtime = mk();
+    const emitted: import('@heybeaux/sonder-core').SonderEventAny[] = [];
 
     const wrapped = withSonder(async () => 'done', {
-      bus: runtime.bus,
+      runtime,
       agentId: 'a',
       taskId: 't',
       onEvent: (e) => emitted.push(e),
@@ -47,11 +65,11 @@ describe('withSonder', () => {
   });
 
   it('emits error event and rethrows on failure', async () => {
-    const runtime = createRuntime();
+    const runtime = mk();
     const events: string[] = [];
 
     const wrapped = withSonder(async () => { throw new Error('boom'); }, {
-      bus: runtime.bus,
+      runtime,
       agentId: 'a',
       taskId: 't',
       onEvent: (e) => events.push((e.payload as { phase: string }).phase),
@@ -65,11 +83,11 @@ describe('withSonder', () => {
   });
 
   it('stamps agent_id and task_id on every event', async () => {
-    const runtime = createRuntime();
-    const emitted: import('@heybeaux/sonder-core').SonderEvent[] = [];
+    const runtime = mk();
+    const emitted: import('@heybeaux/sonder-core').SonderEventAny[] = [];
 
     const wrapped = withSonder(async () => null, {
-      bus: runtime.bus,
+      runtime,
       agentId: 'my-agent',
       taskId: 'my-task',
       onEvent: (e) => emitted.push(e),
@@ -84,11 +102,11 @@ describe('withSonder', () => {
   });
 
   it('uses provided parentId on before event', async () => {
-    const runtime = createRuntime();
-    const emitted: import('@heybeaux/sonder-core').SonderEvent[] = [];
+    const runtime = mk();
+    const emitted: import('@heybeaux/sonder-core').SonderEventAny[] = [];
 
     const wrapped = withSonder(async () => null, {
-      bus: runtime.bus,
+      runtime,
       agentId: 'a',
       taskId: 't',
       parentId: 'upstream-event-id',

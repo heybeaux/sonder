@@ -1,15 +1,23 @@
-import type { SonderBus, SonderEvent } from '@heybeaux/sonder-core';
+import type { SonderEventAny } from '@heybeaux/sonder-core';
+import type { SonderRuntime } from './runtime.js';
 
 export interface WithSonderOptions {
-  bus: SonderBus;
+  /**
+   * Sonder runtime — must be created via `createRuntime()`. v0.2 routes
+   * through `runtime.emit` (the v2 chain pipeline). The previous shape
+   * `{ bus }` is no longer supported.
+   */
+  runtime: SonderRuntime;
   /** agent_id to stamp on every emitted event */
   agentId: string;
   /** task_id to stamp on every emitted event */
   taskId: string;
   /** Optional parent event ID for causal chaining */
   parentId?: string;
-  /** Called after each event is emitted — useful for logging or side effects */
-  onEvent?: (event: SonderEvent) => void;
+  /**
+   * Called after each event is emitted — useful for logging or side effects.
+   */
+  onEvent?: (event: SonderEventAny) => void;
 }
 
 export type WrappedAgentFn<TInput, TOutput> = (input: TInput) => Promise<TOutput>;
@@ -23,8 +31,9 @@ export type WrappedAgentFn<TInput, TOutput> = (input: TInput) => Promise<TOutput
  *   - 'after' event:  captures the outcome with the function's output as payload
  *
  * Usage:
+ *   const runtime = createRuntime();
  *   const draft = withSonder(myDraftFn, {
- *     bus: runtime.bus,
+ *     runtime,
  *     agentId: 'agent:draft',
  *     taskId: 'task:linkedin-post',
  *   });
@@ -35,10 +44,10 @@ export function withSonder<TInput, TOutput>(
   options: WithSonderOptions,
 ): WrappedAgentFn<TInput, TOutput> {
   return async (input: TInput): Promise<TOutput> => {
-    const { bus, agentId, taskId, parentId, onEvent } = options;
+    const { runtime, agentId, taskId, parentId, onEvent } = options;
 
     // Emit 'before' event — cognitive context at decision time
-    const beforeEvent = await bus.emit({
+    const beforeEvent = await runtime.emit({
       agent_id: agentId,
       task_id: taskId,
       ...(parentId !== undefined && { parent_id: parentId }),
@@ -51,7 +60,7 @@ export function withSonder<TInput, TOutput>(
       output = await fn(input);
     } catch (err) {
       // Emit failure event so the audit log captures the crash
-      const failEvent = await bus.emit({
+      const failEvent = await runtime.emit({
         agent_id: agentId,
         task_id: taskId,
         parent_id: beforeEvent.id,
@@ -62,7 +71,7 @@ export function withSonder<TInput, TOutput>(
     }
 
     // Emit 'after' event — carries the output as payload
-    const afterEvent = await bus.emit({
+    const afterEvent = await runtime.emit({
       agent_id: agentId,
       task_id: taskId,
       parent_id: beforeEvent.id,

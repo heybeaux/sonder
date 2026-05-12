@@ -170,7 +170,7 @@ describe('SonderEvent envelope — spec compliance', () => {
     await bus.emit({ agent_id: 'agent-b', task_id: 'task-beta', payload: 2 });
     const results = bus.query({ task_id: 'task-alpha' });
     expect(results).toHaveLength(1);
-    expect(results[0].agent_id).toBe('agent-a');
+    expect(results[0]?.agent_id).toBe('agent-a');
     bus.close();
   });
 });

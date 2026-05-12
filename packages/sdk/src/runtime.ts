@@ -1,4 +1,4 @@
-import { SonderBus, type SonderBusOptions, type SonderAdapter } from '@sonder/core';
+import { SonderBus, type SonderBusOptions, type SonderAdapter } from '@heybeaux/sonder-core';
 
 export interface RuntimeConfig extends SonderBusOptions {
   /** Adapters to register on the bus. Order determines contribute() call order. */

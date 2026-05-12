@@ -1,4 +1,4 @@
-import type { SonderAdapter, SonderEvent, CapabilityContext, LODLevel } from '@sonder/core';
+import type { SonderAdapter, SonderEvent, CapabilityContext, LODLevel } from '@heybeaux/sonder-core';
 
 export interface ACRCapabilitySnapshot {
   /** IDs of capabilities currently mounted */

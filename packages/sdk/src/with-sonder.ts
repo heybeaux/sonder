@@ -1,4 +1,4 @@
-import type { SonderBus, SonderEvent } from '@sonder/core';
+import type { SonderBus, SonderEvent } from '@heybeaux/sonder-core';
 
 export interface WithSonderOptions {
   bus: SonderBus;

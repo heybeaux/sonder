@@ -73,8 +73,63 @@ describe('AwmAdapter', () => {
     expect(result.task_id).toBe('task-999');
   });
 
-  it('observe resolves without error', async () => {
+  it('observe: no-op when onStepOutcome not provided', async () => {
     const adapter = new AwmAdapter({ getCurrentIntent: () => null });
     await expect(adapter.observe({} as never)).resolves.toBeUndefined();
+  });
+
+  it('observe: no-op when event has no step_trace_id', async () => {
+    const calls: string[] = [];
+    const adapter = new AwmAdapter({
+      getCurrentIntent: () => null,
+      onStepOutcome: (traceId) => calls.push(traceId),
+    });
+    await adapter.observe({
+      intent: { step_trace_id: '' },
+      governance: { contract_id: 'c1', validated: true },
+    } as never);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('observe: no-op when event has no contract_id', async () => {
+    const calls: string[] = [];
+    const adapter = new AwmAdapter({
+      getCurrentIntent: () => null,
+      onStepOutcome: (traceId) => calls.push(traceId),
+    });
+    await adapter.observe({
+      intent: { step_trace_id: 'trace-001' },
+      governance: { contract_id: '', validated: true },
+    } as never);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('observe: fires pass with step_trace_id when governance validated=true', async () => {
+    const calls: Array<{ traceId: string; outcome: string }> = [];
+    const adapter = new AwmAdapter({
+      getCurrentIntent: () => null,
+      onStepOutcome: (traceId, outcome) => calls.push({ traceId, outcome }),
+    });
+    await adapter.observe({
+      intent: { step_trace_id: 'trace-abc' },
+      governance: { contract_id: 'c1', validated: true },
+    } as never);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].traceId).toBe('trace-abc');
+    expect(calls[0].outcome).toBe('pass');
+  });
+
+  it('observe: fires fail when governance validated=false', async () => {
+    const calls: Array<{ traceId: string; outcome: string }> = [];
+    const adapter = new AwmAdapter({
+      getCurrentIntent: () => null,
+      onStepOutcome: (traceId, outcome) => calls.push({ traceId, outcome }),
+    });
+    await adapter.observe({
+      intent: { step_trace_id: 'trace-xyz' },
+      governance: { contract_id: 'c1', validated: false },
+    } as never);
+    expect(calls[0].outcome).toBe('fail');
+    expect(calls[0].traceId).toBe('trace-xyz');
   });
 });

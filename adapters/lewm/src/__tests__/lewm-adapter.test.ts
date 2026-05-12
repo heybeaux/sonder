@@ -62,8 +62,45 @@ describe('LewmAdapter', () => {
     expect(result.agent_id).toBe('agent-123');
   });
 
-  it('observe resolves without error', async () => {
+  it('observe: no-op when onGovernanceOutcome not provided', async () => {
     const adapter = new LewmAdapter({ getCurrentPrediction: () => null });
     await expect(adapter.observe({} as never)).resolves.toBeUndefined();
+  });
+
+  it('observe: no-op when event has no contract_id', async () => {
+    const calls: string[] = [];
+    const adapter = new LewmAdapter({
+      getCurrentPrediction: () => null,
+      onGovernanceOutcome: (outcome) => calls.push(outcome),
+    });
+    await adapter.observe({ governance: { contract_id: '', validated: true, violations: [] } } as never);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('observe: fires pass when governance validated=true', async () => {
+    const calls: Array<{ outcome: string; violations: string[] }> = [];
+    const adapter = new LewmAdapter({
+      getCurrentPrediction: () => null,
+      onGovernanceOutcome: (outcome, violations) => calls.push({ outcome, violations }),
+    });
+    await adapter.observe({
+      governance: { contract_id: 'c1', validated: true, violations: [] },
+    } as never);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].outcome).toBe('pass');
+    expect(calls[0].violations).toEqual([]);
+  });
+
+  it('observe: fires fail with violations when governance validated=false', async () => {
+    const calls: Array<{ outcome: string; violations: string[] }> = [];
+    const adapter = new LewmAdapter({
+      getCurrentPrediction: () => null,
+      onGovernanceOutcome: (outcome, violations) => calls.push({ outcome, violations }),
+    });
+    await adapter.observe({
+      governance: { contract_id: 'c1', validated: false, violations: ['L1_TYPE_MISMATCH'] },
+    } as never);
+    expect(calls[0].outcome).toBe('fail');
+    expect(calls[0].violations).toContain('L1_TYPE_MISMATCH');
   });
 });

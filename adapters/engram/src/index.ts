@@ -1,4 +1,4 @@
-import type { SonderAdapter, SonderEvent, MemoryContext } from '@sonder/core';
+import type { SonderAdapter, SonderEvent, MemoryContext } from '@heybeaux/sonder-core';
 
 export interface EngramRetrievalSnapshot {
   /** IDs of memory records consulted in the last retrieval */

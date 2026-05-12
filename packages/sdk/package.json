@@ -1,5 +1,5 @@
 {
-  "name": "@sonder/sdk",
+  "name": "@heybeaux/sonder-sdk",
   "version": "0.1.0",
   "description": "Sonder SDK — createRuntime() factory and withSonder() HOC for framework-agnostic integration",
   "license": "MIT",
@@ -23,7 +23,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sonder/core": "workspace:*"
+    "@heybeaux/sonder-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.3.0",

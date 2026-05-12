@@ -123,10 +123,10 @@ interface SonderEvent {
 
 ## Production Storage
 
-The default SQLite backend is suitable for single-process agents and development. For high-throughput multi-process deployments, swap the persistence layer by extending `AuditLog` from `@sonder/core`:
+The default SQLite backend is suitable for single-process agents and development. For high-throughput multi-process deployments, swap the persistence layer by extending `AuditLog` from `@heybeaux/sonder-core`:
 
 ```typescript
-import { AuditLog } from '@sonder/core';
+import { AuditLog } from '@heybeaux/sonder-core';
 
 class PostgresAuditLog extends AuditLog {
   // Override write() and query() to use your Postgres pool

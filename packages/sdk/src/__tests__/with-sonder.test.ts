@@ -32,7 +32,7 @@ describe('withSonder', () => {
 
   it('after event has before event as parent_id', async () => {
     const runtime = createRuntime();
-    const emitted: import('@sonder/core').SonderEvent[] = [];
+    const emitted: import('@heybeaux/sonder-core').SonderEvent[] = [];
 
     const wrapped = withSonder(async () => 'done', {
       bus: runtime.bus,
@@ -66,7 +66,7 @@ describe('withSonder', () => {
 
   it('stamps agent_id and task_id on every event', async () => {
     const runtime = createRuntime();
-    const emitted: import('@sonder/core').SonderEvent[] = [];
+    const emitted: import('@heybeaux/sonder-core').SonderEvent[] = [];
 
     const wrapped = withSonder(async () => null, {
       bus: runtime.bus,
@@ -85,7 +85,7 @@ describe('withSonder', () => {
 
   it('uses provided parentId on before event', async () => {
     const runtime = createRuntime();
-    const emitted: import('@sonder/core').SonderEvent[] = [];
+    const emitted: import('@heybeaux/sonder-core').SonderEvent[] = [];
 
     const wrapped = withSonder(async () => null, {
       bus: runtime.bus,

@@ -1,5 +1,5 @@
 {
-  "name": "@sonder/adapter-parliament",
+  "name": "@heybeaux/sonder-adapter-parliament",
   "version": "0.1.0",
   "description": "Sonder adapter for parliament",
   "license": "MIT",
@@ -25,7 +25,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sonder/core": "workspace:*"
+    "@heybeaux/sonder-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.3.0",

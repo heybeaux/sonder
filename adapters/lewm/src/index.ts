@@ -1,4 +1,4 @@
-import type { SonderAdapter, SonderEvent, PredictionContext } from '@sonder/core';
+import type { SonderAdapter, SonderEvent, PredictionContext } from '@heybeaux/sonder-core';
 
 export interface LeWMPredictionSnapshot {
   /** Predicted outcome label */
@@ -19,6 +19,13 @@ export interface LeWMAdapterConfig {
    * Return null if LeWM has not produced a prediction yet.
    */
   getCurrentPrediction(): LeWMPredictionSnapshot | null;
+
+  /**
+   * Called when an observed event carries a governance result.
+   * LeWM uses this to update its Beta distribution — alpha increments on pass,
+   * beta increments on fail. Only fired when the event has a non-empty contract_id.
+   */
+  onGovernanceOutcome?(outcome: 'pass' | 'fail', violations: string[], event: SonderEvent): void;
 }
 
 const EMPTY_PREDICTION: PredictionContext = {
@@ -58,8 +65,10 @@ export class LewmAdapter implements SonderAdapter {
   }
 
   async observe(event: SonderEvent): Promise<void> {
-    // Future: update Beta distribution parameters based on observed outcomes
-    // from governance violations (Lattice) and AWM step traces.
-    void event;
+    if (!this.config.onGovernanceOutcome) return;
+    if (!event.governance.contract_id) return;
+
+    const outcome = event.governance.validated ? 'pass' : 'fail';
+    this.config.onGovernanceOutcome(outcome, event.governance.violations, event);
   }
 }

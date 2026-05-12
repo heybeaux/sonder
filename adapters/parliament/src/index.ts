@@ -1,4 +1,4 @@
-import type { SonderAdapter, SonderEvent, ReasoningContext } from '@sonder/core';
+import type { SonderAdapter, SonderEvent, ReasoningContext } from '@heybeaux/sonder-core';
 
 export interface ParliamentDeliberationSnapshot {
   /** Primary model used for deliberation */

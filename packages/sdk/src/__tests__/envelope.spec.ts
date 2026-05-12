@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { createRuntime } from '../runtime.js';
-import type { SonderAdapter, SonderEvent } from '@sonder/core';
+import type { SonderAdapter, SonderEvent } from '@heybeaux/sonder-core';
 
 function adapterWith(patch: Partial<SonderEvent>): SonderAdapter {
   return {

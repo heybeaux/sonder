@@ -1,6 +1,27 @@
 {
-  "timestamp": "2026-05-09T15:48:02.717Z",
+  "timestamp": "2026-05-11T14:11:16.879Z",
   "platform": "darwin",
   "nodeVersion": "v23.5.0",
-  "n": 1000
+  "n": 1000,
+  "allPass": true,
+  "emitLatencyNoAdapters": {
+    "p50_ms": 0.018,
+    "p95_ms": 0.023,
+    "p99_ms": 0.033,
+    "mean_ms": 0.02
+  },
+  "emitLatencyWithAdapters": {
+    "p50_ms": 0.018,
+    "p95_ms": 0.02,
+    "p99_ms": 0.031,
+    "mean_ms": 0.019
+  },
+  "writeThroughput": {
+    "eventsPerSec": 56371
+  },
+  "queryLatency": {
+    "p50_ms": 0.129,
+    "p95_ms": 0.185,
+    "p99_ms": 0.227
+  }
 }

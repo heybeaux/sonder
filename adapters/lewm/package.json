@@ -1,5 +1,5 @@
 {
-  "name": "@sonder/adapter-lewm",
+  "name": "@heybeaux/sonder-adapter-lewm",
   "version": "0.1.0",
   "description": "Sonder adapter for lewm",
   "license": "MIT",
@@ -25,7 +25,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sonder/core": "workspace:*"
+    "@heybeaux/sonder-core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.3.0",

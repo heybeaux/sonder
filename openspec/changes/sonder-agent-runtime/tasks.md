@@ -6,7 +6,7 @@
 - Generate `packages/core/src/types/event.ts` with all envelope fields typed
 - Export `SonderEvent`, `LODLevel`, `EventFilter`, `SonderAdapter` interfaces
 - Add JSDoc on each field explaining the source package
-- Done: `tsc --noEmit` passes; types are exported from `@sonder/core`
+- Done: `tsc --noEmit` passes; types are exported from `@heybeaux/sonder-core`
 
 ### 1.2 Implement ULID event ID generation
 - Add `ulidx` dependency to core
@@ -25,10 +25,10 @@
 - `query(EventFilter)` maps to SQL with parameterized queries
 - Done: 1,000 events written and queried in under 100ms on M-series Mac
 
-### 1.5 Publish `@sonder/core` to npm at v0.1.0
+### 1.5 Publish `@heybeaux/sonder-core` to npm at v0.1.0
 - Monorepo setup with pnpm workspaces and tsup bundling
 - MIT license, full TypeScript types included
-- Done: `npm install @sonder/core` works; types resolve correctly
+- Done: `npm install @heybeaux/sonder-core` works; types resolve correctly
 
 ---
 
@@ -81,7 +81,7 @@
 
 ## Phase 4 — SDK and Developer Experience (Week 8)
 
-### 4.1 Publish `@sonder/sdk`
+### 4.1 Publish `@heybeaux/sonder-sdk`
 - `createRuntime(config)` factory — registers adapters, returns configured SonderBus
 - `withSonder(agentFn)` HOC — wraps any async agent function with automatic event emission
 - Done: A new framework integration takes under 30 minutes following the README
@@ -100,7 +100,7 @@
 
 ## Dependencies
 
-- Phase 2 depends on Phase 1.5 (`@sonder/core` published)
+- Phase 2 depends on Phase 1.5 (`@heybeaux/sonder-core` published)
 - Phase 3 depends on Phase 2.4 (performance validated before adding more adapters)
 - Phase 4 depends on Phase 3 (all adapters must exist before SDK wraps them)
 - Lattice OpenAI provider (L3 validation) must be implemented before full Lattice adapter validation

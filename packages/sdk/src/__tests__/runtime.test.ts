@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRuntime } from '../runtime.js';
-import type { SonderAdapter, SonderEvent } from '@sonder/core';
+import type { SonderAdapter, SonderEvent } from '@heybeaux/sonder-core';
 
 function mockAdapter(name: string, patch: Partial<SonderEvent> = {}): SonderAdapter {
   return {

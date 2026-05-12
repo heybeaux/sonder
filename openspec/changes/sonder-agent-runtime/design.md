@@ -8,29 +8,26 @@ Sonder is a protocol first, a runtime second. The SonderEvent envelope is the co
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Agent Process                           │
 │                                                                 │
-│  ┌─────────┐   ┌─────────┐   ┌───────────┐                    │
-│  │   ACR   │   │  Engram │   │ Parliament│                    │
-│  │ adapter │   │ adapter │   │  adapter  │                    │
-│  └────┬────┘   └────┬────┘   └─────┬─────┘                    │
-│       │             │              │                            │
-│       └─────────────┴──────────────┘                           │
-│                          │                                      │
-│              ┌───────────▼───────────┐                         │
-│              │     Sonder Event Bus  │                         │
-│              │   (typed, in-process) │                         │
-│              └───────────┬───────────┘                         │
-│                          │                                      │
-│       ┌──────────────────┼──────────────────┐                  │
-│       │                  │                  │                   │
-│  ┌────▼────┐   ┌─────────▼──┐   ┌──────────▼┐                │
-│  │ Lattice │   │    LeWM    │   │    AWM    │                │
-│  │ adapter │   │  adapter   │   │  adapter  │                │
-│  └────┬────┘   └────────────┘   └───────────┘                │
-│       │                                                         │
-│  ┌────▼──────────────────────────────────────┐                │
-│  │              Audit Log                    │                │
-│  │  (append-only, queryable, persistent)     │                │
-│  └───────────────────────────────────────────┘                │
+│  ┌───────┐ ┌────────┐ ┌──────────┐ ┌───────┐ ┌──────┐ ┌─────┐ │
+│  │  ACR  │ │ Engram │ │Parliament│ │Lattice│ │ LeWM │ │ AWM │ │
+│  │adapter│ │adapter │ │ adapter  │ │adapter│ │adapt.│ │adapt│ │
+│  └───┬───┘ └───┬────┘ └────┬─────┘ └───┬───┘ └──┬───┘ └──┬──┘ │
+│      │         │           │           │         │         │    │
+│      └─────────┴───────────┴─────┬─────┴─────────┴─────────┘   │
+│                                  │  contribute() — parallel     │
+│              ┌───────────────────▼───────────┐                  │
+│              │        Sonder Event Bus        │                  │
+│              │      (typed, in-process)       │                  │
+│              └───────────────────┬───────────┘                  │
+│                                  │  observe()  — fire & forget  │
+│      ┌───────────────────────────┴──────────────────────────┐   │
+│      │  all adapters receive the fully-assembled event       │   │
+│      └───────────────────────────────────────────────────────┘   │
+│                                  │                               │
+│  ┌───────────────────────────────▼───────────────────────────┐  │
+│  │                       Audit Log                           │  │
+│  │           (append-only, SQLite, queryable)                │  │
+│  └───────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -39,7 +36,7 @@ Sonder is a protocol first, a runtime second. The SonderEvent envelope is the co
 The SonderEvent is the atomic unit of the runtime. Every agent action — reasoning, memory retrieval, capability mount, handoff, prediction — produces one.
 
 ```typescript
-// @sonder/core — SonderEvent v1
+// @heybeaux/sonder-core — SonderEvent v1
 
 interface SonderEvent {
   // Identity
@@ -117,11 +114,27 @@ type LODLevel = 'index' | 'summary' | 'standard' | 'deep';
 The event bus is intentionally minimal. It is an in-process typed event emitter with persistence hooks — not a distributed message broker. Sonder does not require Kafka, Redis, or any external infrastructure.
 
 ```typescript
-interface SonderBus {
-  emit(event: SonderEvent): Promise<void>;
+class SonderBus {
+  // Register an adapter — all adapters run in parallel during contribute()
+  register(adapter: SonderAdapter): void;
+
+  // Emit an event — runs contribute phase (parallel), persists, then observe phase (async)
+  emit(
+    base: Pick<SonderEvent, 'agent_id' | 'task_id' | 'payload'> &
+      Partial<Omit<SonderEvent, 'id' | 'version' | 'timestamp'>>,
+  ): Promise<SonderEvent>;
+
+  // Subscribe to events by intent action type
   on(type: string, handler: (event: SonderEvent) => void): () => void;
+
+  // Subscribe to all events
   onAny(handler: (event: SonderEvent) => void): () => void;
-  query(filter: EventFilter): Promise<SonderEvent[]>;
+
+  // Query the audit log synchronously
+  query(filter: EventFilter): SonderEvent[];
+
+  // Close the audit log (call on shutdown)
+  close(): void;
 }
 
 interface EventFilter {
@@ -136,7 +149,17 @@ interface EventFilter {
 }
 ```
 
-The default implementation is in-memory with optional SQLite persistence for the audit log. Production deployments can swap the persistence layer for PostgreSQL or any append-only store.
+The default implementation is in-memory with optional SQLite persistence for the audit log (pass `dbPath` to persist across restarts). Production deployments can swap the persistence layer by extending `AuditLog` from `@heybeaux/sonder-core`.
+
+The higher-level `@heybeaux/sonder-sdk` package wraps `SonderBus` with two ergonomic entry points:
+
+```typescript
+// Factory: registers adapters on a configured bus
+createRuntime(config: RuntimeConfig): { bus: SonderBus; shutdown(): void }
+
+// HOC: wraps any async agent function with automatic before/after event emission
+withSonder<TInput, TOutput>(fn, options): WrappedAgentFn<TInput, TOutput>
+```
 
 ## Adapter Contract
 
@@ -159,18 +182,24 @@ A typical agent action flows through Sonder like this:
 
 ```
 1. Agent prepares to act
-2. Sonder.createEvent(agent_id, task_id, payload)
-3. ACR adapter contributes → capabilities section filled
-4. Engram adapter contributes → memory section filled
-5. Parliament adapter contributes → reasoning section filled
-6. Lattice adapter contributes → governance section filled (validates handoff)
-7. LeWM adapter contributes → prediction section filled
-8. AWM adapter contributes → intent section filled
-9. Sonder.emit(event) → event written to audit log
-10. All adapters receive observe(event) → can react/update internal state
+2. bus.emit({ agent_id, task_id, payload })
+3. All adapters called in parallel: contribute(partialEvent)
+   → ACR fills capabilities.*
+   → Engram fills memory.*
+   → Parliament fills reasoning.*
+   → Lattice fills governance.*
+   → LeWM fills prediction.*
+   → AWM fills intent.*
+4. Contributions merged (diff-only — each adapter's changed keys only)
+5. Fully-assembled SonderEvent written to audit log
+6. Typed and wildcard handlers notified synchronously
+7. All adapters called fire-and-forget: observe(event)
+   → LeWM: onGovernanceOutcome() called if contract_id present
+   → AWM: onStepOutcome() called if step_trace_id + contract_id present
+8. bus.emit() resolves with the fully-assembled SonderEvent
 ```
 
-This is a synchronous contribute phase followed by asynchronous observation. Total overhead target: under 5ms p99 for steps 2–9.
+The contribute phase is parallel; the observe phase is fire-and-forget. Step 4 merges contributions as diffs (keys changed from the snapshot) so adapters can safely spread the full event in `contribute()` without clobbering each other.
 
 ## Audit Log
 
@@ -185,6 +214,16 @@ The audit log is the compliance artifact. It answers the five questions regulate
 | What did it decide and why? | `reasoning.*` | ESMA Feb 2026, FCA Consumer Duty |
 | Was the handoff valid? | `governance.validated`, `governance.violations` | EU AI Act Art. 12, NAIC Model Bulletin |
 | What did it predict? | `prediction.*` | SEC AI oversight, CFTC Oct 2024 Advisory |
+
+## Observe Loop: LeWM ↔ AWM
+
+The observe loop closes the prediction-calibration feedback cycle between LeWM and AWM.
+
+**LeWM** is the hypothesis generator — it produces structured predictions using learned world model representations (Beta distribution parameters, outcome labels, model IDs). When it observes governance outcomes via `onGovernanceOutcome()`, it updates its internal beliefs: alpha increments on pass, beta increments on fail.
+
+**AWM** is the calibration layer — it tracks historical step frequencies and scores LeWM's predictions against actual outcomes. When it observes a completed step via `onStepOutcome()`, it records the trace result, which updates its frequency model for that step type. Over time AWM's calibration tells you how much weight to place on LeWM's structural predictions.
+
+Both callbacks are optional — the observe loop only activates when host code supplies them. Events without a `contract_id` or `step_trace_id` are silently skipped.
 
 ## First Integration: Lattice + Engram
 
@@ -205,12 +244,14 @@ This pairing is chosen because:
 
 ## Performance Targets
 
-| Metric | Target |
-|---|---|
-| Event emission latency (p50) | < 1ms |
-| Event emission latency (p99) | < 5ms |
-| Audit log write throughput | > 1,000 events/sec |
-| Audit log query latency (indexed) | < 50ms |
-| SDK bundle size | < 20KB gzipped |
+| Metric | Target | Actual (M-series Mac, N=1000) |
+|---|---|---|
+| Event emission latency (p50) | < 1ms | 0.018ms |
+| Event emission latency (p99) | < 5ms | 0.033ms |
+| Audit log write throughput | > 1,000 events/sec | 56,371 events/sec |
+| Audit log query latency (p99, indexed) | < 50ms | 0.227ms |
+| SDK bundle size | < 20KB gzipped | — |
+
+Benchmarks run with 3 adapters registered (Lattice + Engram + Parliament). Results stored in `benchmarks/results.json`.
 
 ---

@@ -1,4 +1,4 @@
-import type { SonderAdapter, SonderEvent, IntentContext } from '@sonder/core';
+import type { SonderAdapter, SonderEvent, IntentContext } from '@heybeaux/sonder-core';
 
 export type AWMOutcome = 'pass' | 'revise' | 'fail';
 
@@ -22,6 +22,14 @@ export interface AWMAdapterConfig {
    * Return null if AWM has not resolved an intent for this step.
    */
   getCurrentIntent(): AWMIntentSnapshot | null;
+
+  /**
+   * Called when an observed event has a resolvable step outcome.
+   * AWM uses this to score LeWM's predictions — recording whether the step
+   * trace matched its predicted outcome so calibration can be updated.
+   * Only fired when the event carries both a step_trace_id and a governance result.
+   */
+  onStepOutcome?(stepTraceId: string, outcome: AWMOutcome, event: SonderEvent): void;
 }
 
 const EMPTY_INTENT: IntentContext = {
@@ -60,9 +68,11 @@ export class AwmAdapter implements SonderAdapter {
   }
 
   async observe(event: SonderEvent): Promise<void> {
-    // Future: close the learning loop — read LeWM prediction results and
-    // Lattice governance violations from events, call Oracle.recordTrace()
-    // to update Beta distribution beliefs for this step type.
-    void event;
+    if (!this.config.onStepOutcome) return;
+    if (!event.intent.step_trace_id) return;
+    if (!event.governance.contract_id) return;
+
+    const outcome: AWMOutcome = event.governance.validated ? 'pass' : 'fail';
+    this.config.onStepOutcome(event.intent.step_trace_id, outcome, event);
   }
 }

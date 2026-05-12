@@ -1,19 +1,24 @@
 {
-  "name": "@sonder/example-parliament-engram-lattice",
+  "name": "@heybeaux/sonder-example-all-adapters",
   "version": "0.0.1",
-  "description": "End-to-end demo: Sonder event bus with Parliament + Engram + Lattice adapters",
+  "description": "End-to-end demo: Sonder SDK with all six cognitive adapters",
   "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "tsx src/demo.ts",
+    "start": "node dist/demo.js",
+    "build": "tsc --outDir dist --noEmit false",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sonder/core": "workspace:*",
-    "@sonder/adapter-lattice": "workspace:*",
-    "@sonder/adapter-engram": "workspace:*",
-    "@sonder/adapter-parliament": "workspace:*"
+    "@heybeaux/sonder-core": "workspace:*",
+    "@heybeaux/sonder-sdk": "workspace:*",
+    "@heybeaux/sonder-adapter-acr": "workspace:*",
+    "@heybeaux/sonder-adapter-awm": "workspace:*",
+    "@heybeaux/sonder-adapter-engram": "workspace:*",
+    "@heybeaux/sonder-adapter-lattice": "workspace:*",
+    "@heybeaux/sonder-adapter-lewm": "workspace:*",
+    "@heybeaux/sonder-adapter-parliament": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

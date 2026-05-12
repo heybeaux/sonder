@@ -57,12 +57,21 @@ export class SonderBus {
       timestamp: new Date().toISOString(),
     };
 
-    // Synchronous contribute phase — all adapters run in parallel
+    // Synchronous contribute phase — adapters run in parallel against the same
+    // snapshot, then contributions are merged by taking only the keys each
+    // adapter actually changed (i.e. keys that differ from the snapshot).
+    const snapshot = partial;
     const contributions = await Promise.all(
-      this.adapters.map((a) => a.contribute(partial)),
+      this.adapters.map((a) => a.contribute(snapshot)),
     );
     for (const contribution of contributions) {
-      partial = { ...partial, ...contribution };
+      const diff: Partial<SonderEvent> = {};
+      for (const key of Object.keys(contribution) as Array<keyof SonderEvent>) {
+        if (contribution[key] !== snapshot[key]) {
+          (diff as Record<string, unknown>)[key] = contribution[key];
+        }
+      }
+      partial = { ...partial, ...diff };
     }
 
     const event = partial as SonderEvent;

@@ -7,22 +7,22 @@ This guide gets you from zero to a working integration in under 5 minutes.
 ## Install
 
 ```bash
-pnpm add @sonder/core @sonder/sdk
+pnpm add @heybeaux/sonder-core @heybeaux/sonder-sdk
 ```
 
 Add the adapters for whichever packages you're using:
 
 ```bash
-pnpm add @sonder/adapter-lattice @sonder/adapter-engram @sonder/adapter-parliament
+pnpm add @heybeaux/sonder-adapter-lattice @heybeaux/sonder-adapter-engram @heybeaux/sonder-adapter-parliament
 ```
 
 ## Quickstart
 
 ```typescript
-import { createRuntime } from '@sonder/sdk';
-import { LatticeAdapter } from '@sonder/adapter-lattice';
-import { EngramAdapter } from '@sonder/adapter-engram';
-import { ParliamentAdapter } from '@sonder/adapter-parliament';
+import { createRuntime } from '@heybeaux/sonder-sdk';
+import { LatticeAdapter } from '@heybeaux/sonder-adapter-lattice';
+import { EngramAdapter } from '@heybeaux/sonder-adapter-engram';
+import { ParliamentAdapter } from '@heybeaux/sonder-adapter-parliament';
 
 const runtime = createRuntime({
   dbPath: './audit.db',
@@ -62,7 +62,7 @@ runtime.shutdown();
 `withSonder()` wraps any async agent function with automatic event emission — before execution, after execution, and on error.
 
 ```typescript
-import { createRuntime, withSonder } from '@sonder/sdk';
+import { createRuntime, withSonder } from '@heybeaux/sonder-sdk';
 
 const runtime = createRuntime({ adapters: [...] });
 

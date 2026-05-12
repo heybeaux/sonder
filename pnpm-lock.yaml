@@ -29,7 +29,7 @@ importers:
 
   adapters/acr:
     dependencies:
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -48,7 +48,7 @@ importers:
 
   adapters/awm:
     dependencies:
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -67,7 +67,7 @@ importers:
 
   adapters/engram:
     dependencies:
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -86,7 +86,7 @@ importers:
 
   adapters/lattice:
     dependencies:
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -108,7 +108,7 @@ importers:
 
   adapters/lewm:
     dependencies:
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -127,7 +127,7 @@ importers:
 
   adapters/parliament:
     dependencies:
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../../packages/core
     devDependencies:
@@ -146,16 +146,16 @@ importers:
 
   benchmarks:
     dependencies:
-      '@sonder/adapter-engram':
+      '@heybeaux/sonder-adapter-engram':
         specifier: workspace:*
         version: link:../adapters/engram
-      '@sonder/adapter-lattice':
+      '@heybeaux/sonder-adapter-lattice':
         specifier: workspace:*
         version: link:../adapters/lattice
-      '@sonder/adapter-parliament':
+      '@heybeaux/sonder-adapter-parliament':
         specifier: workspace:*
         version: link:../adapters/parliament
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../packages/core
     devDependencies:
@@ -171,18 +171,30 @@ importers:
 
   examples/parliament-engram-lattice:
     dependencies:
-      '@sonder/adapter-engram':
+      '@heybeaux/sonder-adapter-acr':
+        specifier: workspace:*
+        version: link:../../adapters/acr
+      '@heybeaux/sonder-adapter-awm':
+        specifier: workspace:*
+        version: link:../../adapters/awm
+      '@heybeaux/sonder-adapter-engram':
         specifier: workspace:*
         version: link:../../adapters/engram
-      '@sonder/adapter-lattice':
+      '@heybeaux/sonder-adapter-lattice':
         specifier: workspace:*
         version: link:../../adapters/lattice
-      '@sonder/adapter-parliament':
+      '@heybeaux/sonder-adapter-lewm':
+        specifier: workspace:*
+        version: link:../../adapters/lewm
+      '@heybeaux/sonder-adapter-parliament':
         specifier: workspace:*
         version: link:../../adapters/parliament
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@heybeaux/sonder-sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -221,7 +233,7 @@ importers:
 
   packages/sdk:
     dependencies:
-      '@sonder/core':
+      '@heybeaux/sonder-core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

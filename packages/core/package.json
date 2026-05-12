@@ -1,5 +1,5 @@
 {
-  "name": "@sonder/core",
+  "name": "@heybeaux/sonder-core",
   "version": "0.1.0",
   "description": "Sonder event bus, envelope schema, and audit log",
   "license": "MIT",

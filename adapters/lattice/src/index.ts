@@ -1,4 +1,4 @@
-import type { SonderAdapter, SonderEvent, GovernanceContext } from '@sonder/core';
+import type { SonderAdapter, SonderEvent, GovernanceContext } from '@heybeaux/sonder-core';
 import type { StateContract, CircuitState } from '@heybeaux/lattice-core';
 
 export interface LatticeAdapterConfig {

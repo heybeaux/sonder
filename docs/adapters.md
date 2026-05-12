@@ -14,7 +14,7 @@ All six adapters ship in this repo. Each uses an **injected callback pattern** �
 Fills `event.governance` from a Lattice StateContract and circuit breaker.
 
 ```typescript
-import { LatticeAdapter } from '@sonder/adapter-lattice';
+import { LatticeAdapter } from '@heybeaux/sonder-adapter-lattice';
 
 new LatticeAdapter({
   // Return the active StateContract, or null if none
@@ -53,7 +53,7 @@ new LatticeAdapter({
 Fills `event.memory` from the last Engram retrieval result.
 
 ```typescript
-import { EngramAdapter } from '@sonder/adapter-engram';
+import { EngramAdapter } from '@heybeaux/sonder-adapter-engram';
 
 new EngramAdapter({
   // Return the last retrieval result, or null if no retrieval has occurred
@@ -89,7 +89,7 @@ new EngramAdapter({ getLastRetrieval: () => lastRetrieval })
 Fills `event.reasoning` from the last Parliament deliberation result.
 
 ```typescript
-import { ParliamentAdapter } from '@sonder/adapter-parliament';
+import { ParliamentAdapter } from '@heybeaux/sonder-adapter-parliament';
 
 new ParliamentAdapter({
   getLastDeliberation(): {
@@ -127,7 +127,7 @@ new ParliamentAdapter({
 Fills `event.capabilities` from the ACR capability registry.
 
 ```typescript
-import { AcrAdapter } from '@sonder/adapter-acr';
+import { AcrAdapter } from '@heybeaux/sonder-adapter-acr';
 
 new AcrAdapter({
   getCapabilities(): {
@@ -156,10 +156,10 @@ new AcrAdapter({
 
 ## LewmAdapter
 
-Fills `event.prediction` from a LeWM world model prediction.
+Fills `event.prediction` from a LeWM world model prediction. Also observes governance outcomes from the bus to update its world model — LeWM is the hypothesis generator; when it sees whether a governance check passed or failed, it can update its Beta distribution parameters accordingly.
 
 ```typescript
-import { LewmAdapter } from '@sonder/adapter-lewm';
+import { LewmAdapter } from '@heybeaux/sonder-adapter-lewm';
 
 new LewmAdapter({
   getCurrentPrediction(): {
@@ -169,6 +169,28 @@ new LewmAdapter({
     beta: number;         // Beta distribution beta (failures)
     model_id: string;     // model that produced this prediction
   } | null,
+
+  // Optional. Called after every event that carries a governance result.
+  // Increment alpha on pass, beta on fail to update your Beta distribution.
+  onGovernanceOutcome?(
+    outcome: 'pass' | 'fail',
+    violations: string[],
+    event: SonderEvent,
+  ): void,
+})
+```
+
+```typescript
+let alpha = 1;
+let beta = 1;
+
+new LewmAdapter({
+  getCurrentPrediction: () => predictionService.latest(),
+  onGovernanceOutcome: (outcome) => {
+    if (outcome === 'pass') alpha++;
+    else beta++;
+    predictionService.updateBeliefs({ alpha, beta });
+  },
 })
 ```
 
@@ -178,10 +200,10 @@ new LewmAdapter({
 
 ## AwmAdapter
 
-Fills `event.intent` from AWM's Oracle prediction for the current step.
+Fills `event.intent` from AWM's Oracle prediction for the current step. Also observes step outcomes from the bus to score LeWM's predictions — AWM is the calibration layer that records whether structural predictions held up against actual governance results, updating its frequency model over time.
 
 ```typescript
-import { AwmAdapter } from '@sonder/adapter-awm';
+import { AwmAdapter } from '@heybeaux/sonder-adapter-awm';
 
 new AwmAdapter({
   getCurrentIntent(): {
@@ -191,10 +213,18 @@ new AwmAdapter({
     skip_reason?: string;        // reason for skip
     constraint_injected: boolean; // whether approval gate pre-injected constraints
   } | null,
+
+  // Optional. Called after every event that carries both a step_trace_id and a
+  // governance result. Use this to record the trace outcome back into AWM.
+  onStepOutcome?(
+    stepTraceId: string,
+    outcome: 'pass' | 'fail',
+    event: SonderEvent,
+  ): void,
 })
 ```
 
-**Wiring to AWM:** Call `oracle.predict()` before the step, then record the trace after:
+**Wiring to AWM:** Call `oracle.predict()` before the step, then let `onStepOutcome` close the loop automatically:
 
 ```typescript
 const prediction = await oracle.predict({ stepType: 'draft', profileSlug: 'beaux' });
@@ -208,20 +238,20 @@ new AwmAdapter({
     skip_reason: prediction.skipRecommendation ? prediction.reasoning : undefined,
     constraint_injected: prediction.constraints.length > 0,
   }),
+  onStepOutcome: (id, outcome) => {
+    oracle.recordTrace({ traceId: id, stepType: 'draft', passed: outcome === 'pass' });
+  },
 })
-
-// After the step, record the trace
-await oracle.recordTrace({ traceId, stepType: 'draft', passed: true, ... });
 ```
 
 ---
 
 ## Writing a Custom Adapter
 
-Implement `SonderAdapter` from `@sonder/core`:
+Implement `SonderAdapter` from `@heybeaux/sonder-core`:
 
 ```typescript
-import type { SonderAdapter, SonderEvent } from '@sonder/core';
+import type { SonderAdapter, SonderEvent } from '@heybeaux/sonder-core';
 
 export class MyAdapter implements SonderAdapter {
   readonly name = 'my-package';

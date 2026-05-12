@@ -8,10 +8,10 @@
  *   audit log query   < 50ms (indexed)
  */
 
-import { SonderBus } from '@sonder/core';
-import { LatticeAdapter } from '@sonder/adapter-lattice';
-import { EngramAdapter } from '@sonder/adapter-engram';
-import { ParliamentAdapter } from '@sonder/adapter-parliament';
+import { SonderBus } from '@heybeaux/sonder-core';
+import { LatticeAdapter } from '@heybeaux/sonder-adapter-lattice';
+import { EngramAdapter } from '@heybeaux/sonder-adapter-engram';
+import { ParliamentAdapter } from '@heybeaux/sonder-adapter-parliament';
 import type { StateContract } from '@heybeaux/lattice-core';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -31,6 +31,10 @@ function stats(samples: number[]) {
     max: sorted[sorted.length - 1] ?? 0,
     mean: samples.reduce((a, b) => a + b, 0) / samples.length,
   };
+}
+
+function round(n: number, decimals = 3): number {
+  return parseFloat(n.toFixed(decimals));
 }
 
 function pass(label: string, value: number, target: number, unit = 'ms') {
@@ -165,9 +169,11 @@ async function main() {
 
   // ── Benchmark 1: No adapters ──
   console.log('1. Emit latency — no adapters');
+  let emitNoAdapters!: ReturnType<typeof stats>;
   {
     const samples = await benchEmitNoAdapters(N);
-    const s = stats(samples);
+    emitNoAdapters = stats(samples);
+    const s = emitNoAdapters;
     console.log(`     p50=${s.p50.toFixed(3)}ms  p95=${s.p95.toFixed(3)}ms  p99=${s.p99.toFixed(3)}ms  mean=${s.mean.toFixed(3)}ms`);
     allPass = pass('  p50', s.p50, 1) && allPass;
     allPass = pass('  p99', s.p99, 5) && allPass;
@@ -175,9 +181,11 @@ async function main() {
 
   // ── Benchmark 2: 3 adapters ──
   console.log('\n2. Emit latency — 3 adapters (Lattice + Engram + Parliament)');
+  let emitWithAdapters!: ReturnType<typeof stats>;
   {
     const samples = await benchEmitWithAdapters(N);
-    const s = stats(samples);
+    emitWithAdapters = stats(samples);
+    const s = emitWithAdapters;
     console.log(`     p50=${s.p50.toFixed(3)}ms  p95=${s.p95.toFixed(3)}ms  p99=${s.p99.toFixed(3)}ms  mean=${s.mean.toFixed(3)}ms`);
     allPass = pass('  p50', s.p50, 1) && allPass;
     allPass = pass('  p99', s.p99, 5) && allPass;
@@ -185,31 +193,54 @@ async function main() {
 
   // ── Benchmark 3: Write throughput ──
   console.log('\n3. Audit log write throughput');
+  let writeThroughputEventsPerSec = 0;
   {
-    const eventsPerSec = await benchWriteThroughput(N);
-    const ok = eventsPerSec >= 1000;
+    writeThroughputEventsPerSec = await benchWriteThroughput(N);
+    const ok = writeThroughputEventsPerSec >= 1000;
     const mark = ok ? '✓' : '✗';
-    console.log(`  ${mark} throughput: ${Math.round(eventsPerSec).toLocaleString()} events/sec  (target > 1,000/sec)`);
+    console.log(`  ${mark} throughput: ${Math.round(writeThroughputEventsPerSec).toLocaleString()} events/sec  (target > 1,000/sec)`);
     allPass = ok && allPass;
   }
 
   // ── Benchmark 4: Query latency ──
   console.log('\n4. Audit log query latency (1,000 events seeded, 100 queries)');
+  let queryLatency!: ReturnType<typeof stats>;
   {
     const samples = await benchQueryLatency(N);
-    const s = stats(samples);
+    queryLatency = stats(samples);
+    const s = queryLatency;
     console.log(`     p50=${s.p50.toFixed(3)}ms  p95=${s.p95.toFixed(3)}ms  p99=${s.p99.toFixed(3)}ms`);
     allPass = pass('  p99', s.p99, 50) && allPass;
   }
 
   console.log(`\n${allPass ? '✓ All benchmarks passed.' : '✗ One or more benchmarks failed.'}`);
 
-  // Write results to file for tracking
   const results = {
     timestamp: new Date().toISOString(),
     platform: process.platform,
     nodeVersion: process.version,
     n: N,
+    allPass,
+    emitLatencyNoAdapters: {
+      p50_ms: round(emitNoAdapters.p50),
+      p95_ms: round(emitNoAdapters.p95),
+      p99_ms: round(emitNoAdapters.p99),
+      mean_ms: round(emitNoAdapters.mean),
+    },
+    emitLatencyWithAdapters: {
+      p50_ms: round(emitWithAdapters.p50),
+      p95_ms: round(emitWithAdapters.p95),
+      p99_ms: round(emitWithAdapters.p99),
+      mean_ms: round(emitWithAdapters.mean),
+    },
+    writeThroughput: {
+      eventsPerSec: Math.round(writeThroughputEventsPerSec),
+    },
+    queryLatency: {
+      p50_ms: round(queryLatency.p50),
+      p95_ms: round(queryLatency.p95),
+      p99_ms: round(queryLatency.p99),
+    },
   };
   const { writeFileSync } = await import('node:fs');
   writeFileSync(

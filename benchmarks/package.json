@@ -1,7 +1,7 @@
 {
-  "name": "@sonder/benchmarks",
+  "name": "@heybeaux/sonder-benchmarks",
   "version": "0.0.1",
-  "description": "Performance benchmarks for @sonder/core",
+  "description": "Performance benchmarks for @heybeaux/sonder-core",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -10,10 +10,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@sonder/core": "workspace:*",
-    "@sonder/adapter-lattice": "workspace:*",
-    "@sonder/adapter-engram": "workspace:*",
-    "@sonder/adapter-parliament": "workspace:*"
+    "@heybeaux/sonder-core": "workspace:*",
+    "@heybeaux/sonder-adapter-lattice": "workspace:*",
+    "@heybeaux/sonder-adapter-engram": "workspace:*",
+    "@heybeaux/sonder-adapter-parliament": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.0",

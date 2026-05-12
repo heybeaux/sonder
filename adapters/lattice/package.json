@@ -1,5 +1,5 @@
 {
-  "name": "@sonder/adapter-lattice",
+  "name": "@heybeaux/sonder-adapter-lattice",
   "version": "0.1.0",
   "description": "Sonder adapter for lattice",
   "license": "MIT",
@@ -23,7 +23,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@sonder/core": "workspace:*"
+    "@heybeaux/sonder-core": "workspace:*"
   },
   "peerDependencies": {
     "@heybeaux/lattice-core": ">=0.1.0"

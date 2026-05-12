@@ -12,7 +12,7 @@ Redaction MUST run as the first step of `runtime.emit`, before any hash or signa
 
 ### R2 — Implementation reuse
 
-Redaction MUST reuse `redactJson` from `@heybeaux/lattice-core` (extracted from `redactContract` as part of this change). Sonder MUST NOT maintain a parallel redaction implementation.
+Redaction MUST reuse `redactJson` from `@heybeaux/lattice-core` v0.4.0+ (exported per Spec 1 R11). Sonder MUST NOT maintain a parallel redaction implementation. Sonder's `package.json` MUST pin `@heybeaux/lattice-core@^0.4.0`; merging Spec 2 with an older Lattice version is a build break by design.
 
 ### R3 — Default sensitivity
 
@@ -44,6 +44,8 @@ $.intent.step_trace_id
 ```
 
 Refusal MUST raise `RedactionRefusedError(`must-not-redact-field-missing:<jsonpath>`)` with the first failing path. The event MUST NOT be persisted.
+
+**Conditional fields:** `$.governance.tier` and `$.governance.evidence` (Spec 1 R7 / Spec 2 R13) are added to `mustNotRedact` IFF `$.governance.tier` resolves on the input. They are optional on v2 events for non-Lattice emitters; the redactor MUST NOT refuse when both are absent. When `tier` is present, both fields MUST survive redaction.
 
 ### R5 — Evidence block
 

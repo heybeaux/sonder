@@ -104,19 +104,19 @@ async function approvalAgent(input: { draft: string }) {
 const TASK_ID = 'task:linkedin-post-2026-05-11';
 
 const tracedResearch = withSonder(researchAgent, {
-  bus: runtime.bus,
+  runtime,
   agentId: 'agent:research',
   taskId: TASK_ID,
 });
 
 const tracedDraft = withSonder(draftAgent, {
-  bus: runtime.bus,
+  runtime,
   agentId: 'agent:draft',
   taskId: TASK_ID,
 });
 
 const tracedApproval = withSonder(approvalAgent, {
-  bus: runtime.bus,
+  runtime,
   agentId: 'agent:approval',
   taskId: TASK_ID,
 });

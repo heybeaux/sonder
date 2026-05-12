@@ -1,5 +1,8 @@
 export { createRuntime } from './runtime.js';
-export type { RuntimeConfig, SonderRuntime } from './runtime.js';
+export type { RuntimeConfig, RuntimeRedactionConfig, SonderRuntime } from './runtime.js';
+
+export { createEmitPipeline } from './emit-pipeline.js';
+export type { EmitPipeline, EmitPipelineConfig } from './emit-pipeline.js';
 
 export { withSonder } from './with-sonder.js';
 export type { WithSonderOptions, WrappedAgentFn } from './with-sonder.js';

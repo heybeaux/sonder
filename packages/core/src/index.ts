@@ -6,6 +6,7 @@ export type {
   SonderEventCore,
   EventFilter,
   LODLevel,
+  ApprovalGate,
   CapabilityContext,
   MemoryContext,
   ReasoningContext,
@@ -17,6 +18,8 @@ export type {
 } from './types/event.js';
 
 export type { SonderAdapter } from './types/adapter.js';
+
+export { GatePendingError, findPendingGate } from './gate.js';
 
 export { SonderBus } from './bus.js';
 export type { SonderBusOptions } from './bus.js';

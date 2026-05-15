@@ -1,4 +1,10 @@
-import type { SonderAdapter, SonderEvent, IntentContext } from '@heybeaux/sonder-core';
+import type {
+  ApprovalGate,
+  SonderAdapter,
+  SonderEvent,
+  SonderEventCore,
+  IntentContext,
+} from '@heybeaux/sonder-core';
 
 export type AWMOutcome = 'pass' | 'revise' | 'fail';
 
@@ -30,6 +36,15 @@ export interface AWMAdapterConfig {
    * Only fired when the event carries both a step_trace_id and a governance result.
    */
   onStepOutcome?(stepTraceId: string, outcome: AWMOutcome, event: SonderEvent): void;
+
+  /**
+   * Spike A.5 — pre-emit gate status. Called by the emit pipeline before
+   * persistence. Return a gate to veto the emit (state: 'pending'), allow
+   * it (state: 'allowed'), or record a denial (state: 'denied'). Return
+   * null to defer to other adapters (no opinion). Receives the partial
+   * envelope so policy can inspect intent, capabilities, etc.
+   */
+  getGateStatus?(event: Partial<SonderEventCore>): ApprovalGate | null;
 }
 
 const EMPTY_INTENT: IntentContext = {
@@ -74,5 +89,15 @@ export class AwmAdapter implements SonderAdapter {
 
     const outcome: AWMOutcome = event.governance.validated ? 'pass' : 'fail';
     this.config.onStepOutcome(event.intent.step_trace_id, outcome, event);
+  }
+
+  /**
+   * Spike A.5 — pre-emit gate veto. Delegates to the operator's
+   * `getGateStatus` callback. Returns null when no callback is wired,
+   * which leaves the decision to other adapters.
+   */
+  async checkGate(event: Partial<SonderEventCore>): Promise<ApprovalGate | null> {
+    if (!this.config.getGateStatus) return null;
+    return this.config.getGateStatus(event);
   }
 }

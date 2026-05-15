@@ -55,6 +55,11 @@ export class SonderBus {
     this.adapters.push(adapter);
   }
 
+  /** Read-only snapshot of registered adapters (used by the emit pipeline's gate check). */
+  getAdapters(): readonly SonderAdapter[] {
+    return this.adapters;
+  }
+
   on(type: string, handler: EventHandler | LegacyEventHandler): () => void {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, new Set());

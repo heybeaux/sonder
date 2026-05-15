@@ -40,6 +40,23 @@ export interface PolicyEvidenceRow {
   message?: string;
 }
 
+/**
+ * Spike A.5 — pre-emit approval gate.
+ *
+ * When `approval_gate.state === 'pending'`, the emit pipeline aborts before
+ * persistence and throws `GatePendingError`. Resolved out-of-band by
+ * Ginnung (or any supervisor surface) flipping state to 'allowed' |
+ * 'denied' via the adapter, after which the original emit can be retried.
+ */
+export interface ApprovalGate {
+  state: 'pending' | 'allowed' | 'denied';
+  gate_id: string;
+  reason?: string;
+  default_action: 'deny' | 'allow';
+  /** Wall-clock deadline (ISO 8601). After this, default_action applies. */
+  expires_at?: string;
+}
+
 export interface GovernanceContext {
   contract_id: string;
   validated: boolean;
@@ -58,6 +75,11 @@ export interface GovernanceContext {
    * (Spec 2 R12 — sign-refusal); optional otherwise.
    */
   evidence?: PolicyEvidenceRow[];
+  /**
+   * Spike A.5 — pre-emit approval gate. When present and pending, the
+   * emit pipeline aborts before persistence.
+   */
+  approval_gate?: ApprovalGate;
 }
 
 export interface PredictionContext {

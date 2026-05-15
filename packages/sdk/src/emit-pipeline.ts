@@ -29,6 +29,8 @@ import {
   type SonderEventCore,
   type SensitivityLevel,
   type RedactSonderEventOptions,
+  GatePendingError,
+  findPendingGate,
   redactSonderEvent,
   validateL0EvidenceOrThrow,
   validateMustNotRedactOverride,
@@ -85,6 +87,16 @@ export function createEmitPipeline(config: EmitPipelineConfig): EmitPipeline {
     async emit(base) {
       // Step 1: build the envelope through adapters (v1 shape — no chain).
       const v1Envelope = await bus.buildEnvelope(base);
+
+      // Step 1.5 (Spike A.5): pre-emit approval gate. Any adapter that
+      // implements checkGate() can veto persistence by returning a gate
+      // in 'pending' state. The pipeline aborts; no audit row is written.
+      // Resolution happens out-of-band (Ginnung cockpit → adapter API),
+      // after which the caller retries the emit.
+      const pending = await findPendingGate(bus.getAdapters(), v1Envelope);
+      if (pending) {
+        throw new GatePendingError(pending.adapterName, pending.gate);
+      }
 
       // Step 2: redact. RedactionRefusedError bubbles up.
       const { redacted, evidence } = redactSonderEvent(

@@ -1,4 +1,10 @@
-import type { SonderAdapter, SonderEvent, GovernanceContext } from '@heybeaux/sonder-core';
+import type {
+  ApprovalGate,
+  GovernanceContext,
+  SonderAdapter,
+  SonderEvent,
+  SonderEventCore,
+} from '@heybeaux/sonder-core';
 import type { StateContract, CircuitState } from '@heybeaux/lattice-core';
 
 export interface LatticeAdapterConfig {
@@ -19,6 +25,14 @@ export interface LatticeAdapterConfig {
    * Called on every contribute().
    */
   getLastValidation?(): LatticeValidationSnapshot | null;
+
+  /**
+   * Spike A.5 — pre-emit gate for policy-level approval gates. Called by
+   * the emit pipeline before persistence. Return a gate to veto the emit
+   * (state: 'pending'), or null to defer. Typically reads from the
+   * active StateContract's approval-gate spec.
+   */
+  getGateStatus?(event: Partial<SonderEventCore>): ApprovalGate | null;
 }
 
 export interface LatticeValidationSnapshot {
@@ -76,5 +90,15 @@ export class LatticeAdapter implements SonderAdapter {
     // No-op in v1 — circuit breaker state is owned by Lattice itself.
     // Future: react to governance violations from other adapters.
     void event;
+  }
+
+  /**
+   * Spike A.5 — pre-emit gate veto. Delegates to the operator's
+   * `getGateStatus` callback, which typically consults the active
+   * StateContract's approval-gate spec.
+   */
+  async checkGate(event: Partial<SonderEventCore>): Promise<ApprovalGate | null> {
+    if (!this.config.getGateStatus) return null;
+    return this.config.getGateStatus(event);
   }
 }

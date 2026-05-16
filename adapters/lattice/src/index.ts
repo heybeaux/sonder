@@ -1,5 +1,6 @@
 import type {
   ApprovalGate,
+  GateRegistry,
   GovernanceContext,
   SonderAdapter,
   SonderEvent,
@@ -101,4 +102,42 @@ export class LatticeAdapter implements SonderAdapter {
     if (!this.config.getGateStatus) return null;
     return this.config.getGateStatus(event);
   }
+}
+
+/**
+ * Canonical wire-up for option-C deployments: bind a `GateRegistry` to a
+ * host-supplied gate factory. The factory decides — from contract + event —
+ * whether this emit needs a gate at all and (if so) returns an
+ * `ApprovalGate` envelope with a stable `gate_id`. The helper then:
+ *
+ *   1. If the registry already knows this gate_id:
+ *      - resolved/expired → returns null (let emit proceed)
+ *      - denied           → returns the denied gate (still vetoes via pending semantics in host)
+ *      - pending          → returns the pending gate (vetoes emit)
+ *   2. Otherwise registers the new gate and returns it pending.
+ *
+ * The factory MUST produce a deterministic `gate_id` for a given (contract,
+ * event) so retries collapse onto the same record.
+ */
+export function createRegistryBackedGateStatus(args: {
+  registry: GateRegistry;
+  adapterName?: string;
+  openGate(event: Partial<SonderEventCore>): ApprovalGate | null;
+}): (event: Partial<SonderEventCore>) => ApprovalGate | null {
+  const adapterName = args.adapterName ?? 'lattice';
+  return (event) => {
+    const candidate = args.openGate(event);
+    if (!candidate) return null;
+
+    const existing = args.registry.getStatus(candidate.gate_id);
+    if (existing) {
+      if (existing.status === 'resolved' || existing.status === 'expired') {
+        return null;
+      }
+      return existing.gate;
+    }
+
+    args.registry.register(adapterName, candidate);
+    return candidate;
+  };
 }

@@ -1,0 +1,48 @@
+name: sonder
+type: capability
+version: 1.0.0
+description: "Agent cognitive runtime — the signed event bus that binds memory, reasoning, governance, capability, and prediction into a unified mind."
+
+provides:
+  - agent-runtime
+  - event-bus
+  - audit-trail
+
+requires:
+  tools: []
+  capabilities: []
+  context: []
+
+budget:
+  index: 20
+  summary: 200
+  standard: 1250
+  deep: 2500
+
+activation:
+  triggers:
+    - type: pattern
+      match: "(sonder|sonder-sdk|sonder-core|SonderEvent|createRuntime|emit pipeline|event bus)"
+  trigger_logic: OR
+  co_activates: []
+  conflicts: []
+
+permissions:
+  data:
+    sonder_metadata: read-only
+
+behavioral:
+  core: |
+    When discussing or working on Sonder:
+    1. Sonder is the RUNTIME — not Ginnung (which is the control plane over Sonder).
+    2. Repo: https://github.com/heybeaux/sonder. Two packages: @heybeaux/sonder-core + @heybeaux/sonder-sdk.
+    3. Faculties (Engram, Lattice, Parliament, ACR, AWM, LeWM) plug INTO Sonder via the SonderAdapter interface.
+    4. Every agent action emits a signed SonderEventV2 — don't suggest bypassing the emit pipeline.
+    5. If user asks "what does Sonder do" — it's an event bus that carries structured cognitive context (six faculty fields) plus an ed25519-signed audit chain.
+  overlays: []
+
+verification:
+  checklist:
+    - "Pointed at https://github.com/heybeaux/sonder"
+    - "Did not conflate Sonder with Ginnung"
+    - "Used current package names (@heybeaux/sonder-core, @heybeaux/sonder-sdk)"

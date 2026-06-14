@@ -286,6 +286,26 @@ export function conditionalGovernanceFields(event: Record<string, unknown>): str
 }
 
 /**
+ * Phase 3.5 — conditional allowlist for the rollback-signal resource fields
+ * (`$.resources` / `$.paths`). These are audit-critical when present: the
+ * Aegis rollback detector compares overlapping touched-paths across events,
+ * so redacting a path away would silently destroy the signal.
+ *
+ * They are added to the allowlist ONLY when present on the event. Unlike the
+ * always-on `DEFAULT_MUST_NOT_REDACT` entries, an unconditional allowlist
+ * entry would make `redactSonderEvent` throw `RedactionRefusedError` on
+ * every event that lacks the field (the post-redaction resolve check rejects
+ * undefined). Adding them conditionally preserves v1/decision-event reads
+ * where the fields are absent.
+ */
+export function conditionalResourceFields(event: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  if (Array.isArray(event['resources'])) out.push('$.resources');
+  if (Array.isArray(event['paths'])) out.push('$.paths');
+  return out;
+}
+
+/**
  * Thrown when the redactor refused to mask a `mustNotRedact` field, or
  * when a `mustNotRedact` field is null/missing after redaction. The error
  * message includes the offending JSONPath.
@@ -381,11 +401,17 @@ export function redactSonderEvent(
 ): RedactSonderEventResult {
   const sensitivityLevel = options.sensitivityLevel ?? 'high';
   const conditional = conditionalGovernanceFields(event);
+  const resourceConditional = conditionalResourceFields(event);
   const operatorAdds = options.mustNotRedact ?? [];
 
   // Compose the effective allowlist; dedupe preserves stable iteration.
   const allowlist = Array.from(
-    new Set<string>([...DEFAULT_MUST_NOT_REDACT, ...conditional, ...operatorAdds]),
+    new Set<string>([
+      ...DEFAULT_MUST_NOT_REDACT,
+      ...conditional,
+      ...resourceConditional,
+      ...operatorAdds,
+    ]),
   );
 
   const result = redactJson(event, {

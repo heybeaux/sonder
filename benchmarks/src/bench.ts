@@ -10,9 +10,13 @@
 
 import { SonderBus } from '@heybeaux/sonder-core';
 import { LatticeAdapter } from '@heybeaux/sonder-adapter-lattice';
+import type { LatticeAdapterConfig } from '@heybeaux/sonder-adapter-lattice';
 import { EngramAdapter } from '@heybeaux/sonder-adapter-engram';
 import { ParliamentAdapter } from '@heybeaux/sonder-adapter-parliament';
-import type { StateContract } from '@heybeaux/lattice-core';
+
+// Derived from the lattice adapter's public config rather than importing
+// `@heybeaux/lattice-core` directly (not a declared dependency of this package).
+type StateContract = NonNullable<ReturnType<LatticeAdapterConfig['getContract']>>;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

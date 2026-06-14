@@ -115,8 +115,8 @@ describe('AwmAdapter', () => {
       governance: { contract_id: 'c1', validated: true },
     } as never);
     expect(calls).toHaveLength(1);
-    expect(calls[0].traceId).toBe('trace-abc');
-    expect(calls[0].outcome).toBe('pass');
+    expect(calls[0]!.traceId).toBe('trace-abc');
+    expect(calls[0]!.outcome).toBe('pass');
   });
 
   it('observe: fires fail when governance validated=false', async () => {
@@ -129,7 +129,7 @@ describe('AwmAdapter', () => {
       intent: { step_trace_id: 'trace-xyz' },
       governance: { contract_id: 'c1', validated: false },
     } as never);
-    expect(calls[0].outcome).toBe('fail');
-    expect(calls[0].traceId).toBe('trace-xyz');
+    expect(calls[0]!.outcome).toBe('fail');
+    expect(calls[0]!.traceId).toBe('trace-xyz');
   });
 });

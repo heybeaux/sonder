@@ -87,8 +87,8 @@ describe('LewmAdapter', () => {
       governance: { contract_id: 'c1', validated: true, violations: [] },
     } as never);
     expect(calls).toHaveLength(1);
-    expect(calls[0].outcome).toBe('pass');
-    expect(calls[0].violations).toEqual([]);
+    expect(calls[0]!.outcome).toBe('pass');
+    expect(calls[0]!.violations).toEqual([]);
   });
 
   it('observe: fires fail with violations when governance validated=false', async () => {
@@ -100,7 +100,7 @@ describe('LewmAdapter', () => {
     await adapter.observe({
       governance: { contract_id: 'c1', validated: false, violations: ['L1_TYPE_MISMATCH'] },
     } as never);
-    expect(calls[0].outcome).toBe('fail');
-    expect(calls[0].violations).toContain('L1_TYPE_MISMATCH');
+    expect(calls[0]!.outcome).toBe('fail');
+    expect(calls[0]!.violations).toContain('L1_TYPE_MISMATCH');
   });
 });

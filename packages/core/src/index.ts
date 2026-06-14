@@ -15,6 +15,7 @@ export type {
   IntentContext,
   PolicyEvidenceRow,
   RedactionEvidence,
+  OutcomeContext,
 } from './types/event.js';
 
 export type { SonderAdapter } from './types/adapter.js';
@@ -71,6 +72,7 @@ export {
   RedactionRefusedError,
   DEFAULT_MUST_NOT_REDACT,
   conditionalGovernanceFields,
+  conditionalResourceFields,
   validateMustNotRedactOverride,
 } from './redact.js';
 export type {

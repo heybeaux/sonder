@@ -106,6 +106,24 @@ export interface RedactionEvidence {
 }
 
 /**
+ * Phase 3.5 (Aegis labeling substrate) — structured post-execution outcome.
+ *
+ * Written back to the chain after a gated action runs, so the Aegis label
+ * extractor can derive `action_failed` (tool_error / downstream_error)
+ * from typed fields rather than parsing freeform `payload`. Carried as an
+ * optional field on the envelope; absent on pre-execution (decision)
+ * events. See aegis-action-failed-label-spec §1.5, §2.
+ */
+export interface OutcomeContext {
+  /** Process/tool exit code. 0 = clean; non-zero = error (label signal #2). */
+  exit_code?: number;
+  /** True when the tool reported an error result regardless of exit code. */
+  isError: boolean;
+  /** Structured error message/string when the action failed. */
+  error?: string;
+}
+
+/**
  * Common envelope shared by v1 and v2 events — the cognitive-context
  * surface that adapters mutate via `contribute`. Adapters MUST NOT add
  * chain/signature fields.
@@ -123,6 +141,26 @@ export interface SonderEventCore {
   governance: GovernanceContext;
   prediction: PredictionContext;
   intent: IntentContext;
+
+  /**
+   * Phase 3.5 — structured post-execution outcome (exit_code / isError /
+   * error). Present on outcome events written back after a gated action
+   * runs; absent on pre-execution decision events. Optional, backward-
+   * compatible: existing v1/v2 rows have no `outcome`.
+   */
+  outcome?: OutcomeContext;
+  /**
+   * Phase 3.5 — affected resources/paths this action touched (files,
+   * tables, URLs). Source for rollback-signal label detection on
+   * overlapping paths. Optional, populated at emit when known.
+   */
+  resources?: string[];
+  /**
+   * Phase 3.5 — filesystem paths touched by this action. Narrower alias of
+   * `resources` for the common file-write case; both are optional and
+   * backward-compatible.
+   */
+  paths?: string[];
 
   payload: unknown;
   metadata?: Record<string, unknown>;
@@ -169,6 +207,8 @@ export type SonderEventAny = SonderEventV1 | SonderEventV2;
 export interface EventFilter {
   agent_id?: string;
   task_id?: string;
+  /** Phase 3.5 — filter to direct children of a given event. */
+  parent_id?: string;
   from?: string;
   to?: string;
   validated?: boolean;

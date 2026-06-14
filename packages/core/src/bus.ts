@@ -14,6 +14,7 @@ import type {
 import type { SonderAdapter } from './types/adapter.js';
 import { createEventId } from './ulid.js';
 import { AuditLog } from './audit.js';
+import { GatePendingError, findPendingGate } from './gate.js';
 
 const DEFAULTS: Pick<SonderEventCore,
   'capabilities' | 'memory' | 'reasoning' | 'governance' | 'prediction' | 'intent'
@@ -111,6 +112,14 @@ export class SonderBus {
       Partial<Omit<SonderEventCore, 'id' | 'timestamp'>>,
   ): Promise<SonderEventV1> {
     const event = await this.buildEnvelope(base);
+
+    // Spike A.5 — pre-emit gate veto. Runs after envelope build, before
+    // persistence. Any adapter that returns a pending gate aborts the emit:
+    // no audit row, no observers notified. The caller (typically wrapped
+    // in `emitWithGateRetry`) catches GatePendingError and retries once
+    // the gate has been resolved out-of-band.
+    const pending = await findPendingGate(this.adapters, event);
+    if (pending) throw new GatePendingError(pending.adapterName, pending.gate);
 
     // Persist before notifying observers
     this.audit.write(event);

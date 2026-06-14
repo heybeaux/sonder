@@ -1,6 +1,8 @@
 import type {
   ApprovalGate,
+  GateRegistry,
   GovernanceContext,
+  PolicyEvidenceRow,
   SonderAdapter,
   SonderEvent,
   SonderEventCore,
@@ -100,5 +102,129 @@ export class LatticeAdapter implements SonderAdapter {
   async checkGate(event: Partial<SonderEventCore>): Promise<ApprovalGate | null> {
     if (!this.config.getGateStatus) return null;
     return this.config.getGateStatus(event);
+  }
+}
+
+/**
+ * Canonical wire-up for option-C deployments: bind a `GateRegistry` to a
+ * host-supplied gate factory. The factory decides — from contract + event —
+ * whether this emit needs a gate at all and (if so) returns an
+ * `ApprovalGate` envelope with a stable `gate_id`. The helper then:
+ *
+ *   1. If the registry already knows this gate_id:
+ *      - resolved/expired → returns null (let emit proceed)
+ *      - denied           → returns the denied gate (still vetoes via pending semantics in host)
+ *      - pending          → returns the pending gate (vetoes emit)
+ *   2. Otherwise registers the new gate and returns it pending.
+ *
+ * The factory MUST produce a deterministic `gate_id` for a given (contract,
+ * event) so retries collapse onto the same record.
+ */
+export function createRegistryBackedGateStatus(args: {
+  registry: GateRegistry;
+  adapterName?: string;
+  openGate(event: Partial<SonderEventCore>): ApprovalGate | null;
+}): (event: Partial<SonderEventCore>) => ApprovalGate | null {
+  const adapterName = args.adapterName ?? 'lattice';
+  return (event) => {
+    const candidate = args.openGate(event);
+    if (!candidate) return null;
+
+    const existing = args.registry.getStatus(candidate.gate_id);
+    if (existing) {
+      if (existing.status === 'resolved' || existing.status === 'expired') {
+        return null;
+      }
+      return existing.gate;
+    }
+
+    args.registry.register(adapterName, candidate);
+    return candidate;
+  };
+}
+
+// ===========================================================================
+// Aegis governance adapter (Phase 3.5 — Change 4)
+// ===========================================================================
+
+export interface AegisGovernanceContribution {
+  /**
+   * The approval-gate verdict recorded onto the decision event. This is the
+   * Aegis label anchor: it records what the gate DECIDED (allowed/denied/
+   * pending) at decision time, distinct from the pre-emit veto path
+   * (`checkGate`), which only blocks persistence.
+   */
+  approval_gate?: ApprovalGate;
+  /**
+   * Per-rule L0 policy evidence backing the verdict. A free feature for the
+   * Aegis label extractor — also satisfies the Spec 2 R12 sign-refusal
+   * requirement when a governance `tier` claims L1/L2/L3.
+   */
+  evidence?: PolicyEvidenceRow[];
+}
+
+export interface AegisAdapterConfig {
+  /**
+   * Called on every `contribute()`. Returns the approval-gate verdict +
+   * evidence to stamp onto this event's governance block, or `null` to
+   * contribute nothing. Reads from the Aegis governance harness for the
+   * event under construction.
+   */
+  getGovernance(event: Partial<SonderEventCore>): AegisGovernanceContribution | null;
+}
+
+/**
+ * Phase 3.5 — populates `governance.approval_gate` + `governance.evidence`
+ * on the decision event so the row carries its own label anchor and a free
+ * evidence feature for the Aegis predictive layer (AWM).
+ *
+ * Why a contribute() adapter and not caller-supplied governance: in
+ * `buildEnvelope` a registered adapter's diff overwrites the merged base
+ * (`...DEFAULTS, ...base`), so caller-supplied governance would be clobbered
+ * by any governance-returning adapter (e.g. LatticeAdapter's
+ * `EMPTY_GOVERNANCE`). The safe path is the adapter contribution itself.
+ *
+ * Composition: this adapter reads the *current* governance off the snapshot
+ * (whatever LatticeAdapter or another contributor already set) and overlays
+ * only `approval_gate` / `evidence`, preserving validation/tier/violations.
+ * Register it AFTER LatticeAdapter so it sees Lattice's governance.
+ *
+ * Recording is orthogonal to vetoing: a 'denied'/'pending' verdict recorded
+ * here does NOT abort the emit — that is the `checkGate` path's job.
+ */
+export class AegisAdapter implements SonderAdapter {
+  readonly name = 'aegis';
+  readonly version = '0.1.0';
+
+  private readonly config: AegisAdapterConfig;
+
+  constructor(config: AegisAdapterConfig) {
+    this.config = config;
+  }
+
+  async contribute(event: Partial<SonderEvent>): Promise<Partial<SonderEvent>> {
+    const contribution = this.config.getGovernance(event);
+    if (!contribution) return event;
+    if (contribution.approval_gate === undefined && contribution.evidence === undefined) {
+      return event;
+    }
+
+    // Preserve whatever governance an earlier adapter (e.g. Lattice) set;
+    // overlay only the Aegis fields so we never clobber validation booleans,
+    // tier, or violations.
+    const base: GovernanceContext = event.governance ?? { ...EMPTY_GOVERNANCE };
+    const governance: GovernanceContext = { ...base };
+    if (contribution.approval_gate !== undefined) {
+      governance.approval_gate = contribution.approval_gate;
+    }
+    if (contribution.evidence !== undefined) {
+      governance.evidence = contribution.evidence;
+    }
+
+    return { ...event, governance };
+  }
+
+  async observe(event: SonderEvent): Promise<void> {
+    void event;
   }
 }

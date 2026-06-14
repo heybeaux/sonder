@@ -59,22 +59,28 @@ export function withSonder<TInput, TOutput>(
     try {
       output = await fn(input);
     } catch (err) {
-      // Emit failure event so the audit log captures the crash
-      const failEvent = await runtime.emit({
+      // Emit a typed OUTCOME event (Phase 3.5) chained to the decision event
+      // so the Aegis label extractor can derive `tool_error` from the typed
+      // `outcome` block rather than parsing the freeform payload. The
+      // `phase: 'error'` payload marker is preserved for back-compat readers.
+      const failEvent = await runtime.emitOutcome({
         agent_id: agentId,
         task_id: taskId,
-        parent_id: beforeEvent.id,
-        payload: { phase: 'error', input, error: String(err) },
+        parentEventId: beforeEvent.id,
+        outcome: { isError: true, error: String(err) },
+        payload: { phase: 'error', input },
       });
       onEvent?.(failEvent);
       throw err;
     }
 
-    // Emit 'after' event — carries the output as payload
-    const afterEvent = await runtime.emit({
+    // Emit the 'after' OUTCOME event — clean result, carries the output as
+    // payload and a typed `outcome` with isError:false / exit_code:0.
+    const afterEvent = await runtime.emitOutcome({
       agent_id: agentId,
       task_id: taskId,
-      parent_id: beforeEvent.id,
+      parentEventId: beforeEvent.id,
+      outcome: { isError: false, exit_code: 0 },
       payload: { phase: 'after', input, output },
     });
     onEvent?.(afterEvent);

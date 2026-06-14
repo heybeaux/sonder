@@ -27,6 +27,7 @@ import {
   type SonderBus,
   type SonderEventV2,
   type SonderEventCore,
+  type OutcomeContext,
   type SensitivityLevel,
   type RedactSonderEventOptions,
   GatePendingError,
@@ -57,6 +58,25 @@ export interface EmitPipelineConfig {
   };
 }
 
+/**
+ * Phase 3.5 — input to {@link EmitPipeline.emitOutcome}. A typed
+ * post-execution outcome event that chains to the decision event it
+ * describes via `parentEventId`.
+ */
+export interface OutcomeEmitInput {
+  agent_id: string;
+  task_id: string;
+  /** The decision event this outcome chains to (sets `parent_id`). */
+  parentEventId: string;
+  /** Structured outcome: exit_code / isError / error. */
+  outcome: OutcomeContext;
+  /** Resources/paths the action touched (rollback-signal source). */
+  resources?: string[];
+  paths?: string[];
+  /** Optional freeform payload (e.g. truncated tool output). */
+  payload?: unknown;
+}
+
 export interface EmitPipeline {
   /**
    * Emit a v2 SonderEvent. Builds the envelope through registered
@@ -66,6 +86,17 @@ export interface EmitPipeline {
     base: Pick<SonderEventCore, 'agent_id' | 'task_id' | 'payload'> &
       Partial<Omit<SonderEventCore, 'id' | 'timestamp'>>,
   ): Promise<SonderEventV2>;
+
+  /**
+   * Phase 3.5 — emit a typed post-execution outcome event that chains to a
+   * prior decision event. Goes through the same redact → enforce → hash →
+   * sign → persist pipeline as {@link emit}, but stamps the structured
+   * `outcome` (exit_code / isError / error) and `resources`/`paths` onto
+   * the envelope. This is the writeback that lets the Aegis label extractor
+   * derive `action_failed` (tool_error / downstream_error) from typed
+   * fields rather than parsing freeform payload.
+   */
+  emitOutcome(input: OutcomeEmitInput): Promise<SonderEventV2>;
 }
 
 export function createEmitPipeline(config: EmitPipelineConfig): EmitPipeline {
@@ -83,7 +114,7 @@ export function createEmitPipeline(config: EmitPipelineConfig): EmitPipeline {
     redactOpts.mustNotRedact = config.redaction.mustNotRedact;
   }
 
-  return {
+  const pipeline: EmitPipeline = {
     async emit(base) {
       // Step 1: build the envelope through adapters (v1 shape — no chain).
       const v1Envelope = await bus.buildEnvelope(base);
@@ -134,5 +165,25 @@ export function createEmitPipeline(config: EmitPipelineConfig): EmitPipeline {
 
       return signedEvent;
     },
+
+    async emitOutcome(input) {
+      // An outcome event is an ordinary v2 emit with the structured outcome
+      // and resource fields stamped onto the envelope base and parent_id set
+      // to the decision event. Reuses the full signing pipeline so the
+      // writeback is itself tamper-evident and chain-linked.
+      const base: Pick<SonderEventCore, 'agent_id' | 'task_id' | 'payload'> &
+        Partial<Omit<SonderEventCore, 'id' | 'timestamp'>> = {
+        agent_id: input.agent_id,
+        task_id: input.task_id,
+        parent_id: input.parentEventId,
+        outcome: input.outcome,
+        payload: input.payload ?? null,
+      };
+      if (input.resources !== undefined) base.resources = input.resources;
+      if (input.paths !== undefined) base.paths = input.paths;
+      return pipeline.emit(base);
+    },
   };
+
+  return pipeline;
 }

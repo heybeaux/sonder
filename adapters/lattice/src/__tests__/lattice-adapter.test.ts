@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { LatticeAdapter } from '../index.js';
+import { AegisAdapter, LatticeAdapter } from '../index.js';
+import type { ApprovalGate, GovernanceContext, PolicyEvidenceRow } from '@heybeaux/sonder-core';
 import type { StateContract } from '@heybeaux/lattice-core';
 
 const mockContract = {
@@ -68,6 +69,68 @@ describe('LatticeAdapter', () => {
 
   it('observe is a no-op', async () => {
     const adapter = new LatticeAdapter({ getContract: () => null });
+    await expect(adapter.observe({} as never)).resolves.toBeUndefined();
+  });
+});
+
+describe('AegisAdapter (Phase 3.5 — governance verdict + evidence)', () => {
+  const gate: ApprovalGate = {
+    state: 'allowed',
+    gate_id: 'gate-1',
+    default_action: 'deny',
+    reason: 'auto-approved by policy',
+  };
+  const evidence: PolicyEvidenceRow[] = [
+    { rule_id: 'r1', rule_kind: 'allow', outcome: 'pass' },
+  ];
+
+  it('contributes nothing when getGovernance returns null', async () => {
+    const adapter = new AegisAdapter({ getGovernance: () => null });
+    const result = await adapter.contribute({ payload: null });
+    expect(result.governance).toBeUndefined();
+  });
+
+  it('stamps approval_gate + evidence onto governance', async () => {
+    const adapter = new AegisAdapter({ getGovernance: () => ({ approval_gate: gate, evidence }) });
+    const result = await adapter.contribute({ payload: null });
+    expect(result.governance?.approval_gate).toEqual(gate);
+    expect(result.governance?.evidence).toEqual(evidence);
+  });
+
+  it('preserves prior governance set by an earlier adapter (no clobber)', async () => {
+    const prior: GovernanceContext = {
+      contract_id: 'c-9',
+      validated: true,
+      l1_pass: true,
+      l2_pass: true,
+      l3_pass: true,
+      violations: ['none'],
+      circuit_state: 'closed',
+      tier: 'L0+L1',
+    };
+    const adapter = new AegisAdapter({ getGovernance: () => ({ approval_gate: gate }) });
+    const result = await adapter.contribute({ governance: prior });
+    // Aegis overlays approval_gate but keeps everything Lattice set.
+    expect(result.governance?.contract_id).toBe('c-9');
+    expect(result.governance?.validated).toBe(true);
+    expect(result.governance?.tier).toBe('L0+L1');
+    expect(result.governance?.approval_gate).toEqual(gate);
+  });
+
+  it('composes after LatticeAdapter in a contribute chain', async () => {
+    const lattice = new LatticeAdapter({ getContract: () => mockContract });
+    const aegis = new AegisAdapter({ getGovernance: () => ({ approval_gate: gate, evidence }) });
+
+    const afterLattice = await lattice.contribute({ payload: null });
+    const afterAegis = await aegis.contribute(afterLattice);
+
+    expect(afterAegis.governance?.contract_id).toBe('contract-123');
+    expect(afterAegis.governance?.approval_gate).toEqual(gate);
+    expect(afterAegis.governance?.evidence).toEqual(evidence);
+  });
+
+  it('observe is a no-op', async () => {
+    const adapter = new AegisAdapter({ getGovernance: () => null });
     await expect(adapter.observe({} as never)).resolves.toBeUndefined();
   });
 });

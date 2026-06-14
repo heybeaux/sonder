@@ -15,11 +15,22 @@ export type {
   IntentContext,
   PolicyEvidenceRow,
   RedactionEvidence,
+  OutcomeContext,
 } from './types/event.js';
 
 export type { SonderAdapter } from './types/adapter.js';
 
 export { GatePendingError, findPendingGate } from './gate.js';
+
+export { GateRegistry } from './gate-registry.js';
+export type {
+  GateDecision,
+  GateRecord,
+  GateRegistryOptions,
+} from './gate-registry.js';
+
+export { emitWithGateRetry, GateTimeoutError } from './gate-retry.js';
+export type { EmitWithGateRetryOptions } from './gate-retry.js';
 
 export { SonderBus } from './bus.js';
 export type { SonderBusOptions } from './bus.js';
@@ -61,6 +72,7 @@ export {
   RedactionRefusedError,
   DEFAULT_MUST_NOT_REDACT,
   conditionalGovernanceFields,
+  conditionalResourceFields,
   validateMustNotRedactOverride,
 } from './redact.js';
 export type {

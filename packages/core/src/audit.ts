@@ -38,6 +38,7 @@ export class AuditLog {
         id TEXT PRIMARY KEY,
         agent_id TEXT NOT NULL,
         task_id TEXT NOT NULL,
+        parent_id TEXT,
         timestamp TEXT NOT NULL,
         version TEXT NOT NULL DEFAULT '1',
         validated INTEGER NOT NULL,
@@ -49,6 +50,7 @@ export class AuditLog {
       );
       CREATE INDEX IF NOT EXISTS idx_agent ON events(agent_id);
       CREATE INDEX IF NOT EXISTS idx_task ON events(task_id);
+      CREATE INDEX IF NOT EXISTS idx_parent ON events(parent_id);
       CREATE INDEX IF NOT EXISTS idx_ts ON events(timestamp);
       CREATE INDEX IF NOT EXISTS idx_validated ON events(validated);
       CREATE INDEX IF NOT EXISTS idx_agent_ts ON events(agent_id, timestamp);
@@ -85,6 +87,9 @@ export class AuditLog {
     if (!has('chain_prev_hash')) add(`ALTER TABLE events ADD COLUMN chain_prev_hash TEXT`);
     if (!has('chain_self_hash')) add(`ALTER TABLE events ADD COLUMN chain_self_hash TEXT`);
     if (!has('signature')) add(`ALTER TABLE events ADD COLUMN signature TEXT`);
+    // Phase 3.5 — parent_id causal DAG column + index for descendant traversal.
+    if (!has('parent_id')) add(`ALTER TABLE events ADD COLUMN parent_id TEXT`);
+    add(`CREATE INDEX IF NOT EXISTS idx_parent ON events(parent_id)`);
   }
 
   /**
@@ -95,13 +100,13 @@ export class AuditLog {
   write(event: SonderEventAny): void {
     const stmt = this.db.prepare(`
       INSERT INTO events (
-        id, agent_id, task_id, timestamp, version,
+        id, agent_id, task_id, parent_id, timestamp, version,
         validated, violations,
         chain_prev_hash, chain_self_hash, signature,
         payload
       )
       VALUES (
-        @id, @agent_id, @task_id, @timestamp, @version,
+        @id, @agent_id, @task_id, @parent_id, @timestamp, @version,
         @validated, @violations,
         @chain_prev_hash, @chain_self_hash, @signature,
         @payload
@@ -111,6 +116,7 @@ export class AuditLog {
       id: event.id,
       agent_id: event.agent_id,
       task_id: event.task_id,
+      parent_id: event.parent_id ?? null,
       timestamp: event.timestamp,
       version: event.version,
       validated: event.governance.validated ? 1 : 0,
@@ -192,6 +198,10 @@ export class AuditLog {
       conditions.push('task_id = @task_id');
       params['task_id'] = filter.task_id;
     }
+    if (filter.parent_id) {
+      conditions.push('parent_id = @parent_id');
+      params['parent_id'] = filter.parent_id;
+    }
     if (filter.from) {
       conditions.push('timestamp >= @from');
       params['from'] = filter.from;
@@ -226,6 +236,51 @@ export class AuditLog {
     if (opts.from !== undefined) filter.from = opts.from;
     if (opts.limit !== undefined) filter.limit = opts.limit;
     return this.query(filter);
+  }
+
+  /**
+   * Direct children of an event (parent_id = id). Phase 3.5 — the single-hop
+   * causal lookup used by the Aegis label extractor to find veto/outcome/
+   * downstream events that chain to a decision event. Returns rows in
+   * `timestamp ASC, id ASC` order.
+   */
+  queryChildren(parent_id: string): SonderEventAny[] {
+    return this.query({ parent_id });
+  }
+
+  /**
+   * Recursively walk the causal DAG rooted at `rootId`, returning every
+   * descendant (children, grandchildren, ...) in breadth-first order.
+   * Phase 3.5 — backs `downstream_error` / rollback detection where a
+   * failure can be several causal hops removed from the decision event.
+   *
+   * The root event itself is NOT included. Cycle-safe via a visited set
+   * (the signed chain should be acyclic, but the guard is cheap insurance).
+   * `opts.maxDepth` caps traversal depth (default: unbounded).
+   */
+  queryDescendants(rootId: string, opts: { maxDepth?: number } = {}): SonderEventAny[] {
+    const maxDepth = opts.maxDepth ?? Infinity;
+    const out: SonderEventAny[] = [];
+    const visited = new Set<string>([rootId]);
+    let frontier: string[] = [rootId];
+    let depth = 0;
+
+    while (frontier.length > 0 && depth < maxDepth) {
+      const next: string[] = [];
+      for (const parentId of frontier) {
+        const children = this.queryChildren(parentId);
+        for (const child of children) {
+          if (visited.has(child.id)) continue;
+          visited.add(child.id);
+          out.push(child);
+          next.push(child.id);
+        }
+      }
+      frontier = next;
+      depth += 1;
+    }
+
+    return out;
   }
 
   /**

@@ -30,13 +30,13 @@ import { AuditLog } from '@heybeaux/sonder-core';
 import { buildAnchorManifest, serializeAnchorManifest } from '../anchor.js';
 
 interface Args {
-  db?: string;
-  pubKey?: string;
-  pubKeyFile?: string;
-  repo?: string;
-  manifestPath?: string;
-  remote?: string;
-  date?: string;
+  db?: string | undefined;
+  pubKey?: string | undefined;
+  pubKeyFile?: string | undefined;
+  repo?: string | undefined;
+  manifestPath?: string | undefined;
+  remote?: string | undefined;
+  date?: string | undefined;
   dryRun: boolean;
   help: boolean;
 }

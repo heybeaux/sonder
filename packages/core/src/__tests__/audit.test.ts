@@ -38,12 +38,19 @@ function v1(id: string, agent: string, ts: string, payload: unknown = null): Son
   };
 }
 
-function v2(id: string, agent: string, ts: string, payload: unknown = null): SonderEventV2 {
+function v2(
+  id: string,
+  agent: string,
+  ts: string,
+  payload: unknown = null,
+  parent_id?: string,
+): SonderEventV2 {
   return {
     id,
     version: '2',
     agent_id: agent,
     task_id: 't',
+    ...(parent_id !== undefined && { parent_id }),
     timestamp: ts,
     ...baseCore,
     payload,
@@ -163,5 +170,76 @@ describe('AuditLog cross-version reads', () => {
 
     audit.write(v2('first', 'agent-x', '2026-05-12T00:00:02Z'));
     expect(audit.readLatestHash('agent-x')).toBe('a'.repeat(64));
+  });
+});
+
+describe('AuditLog parent_id causal traversal (Phase 3.5)', () => {
+  let audit: AuditLog;
+  beforeEach(() => {
+    audit = new AuditLog();
+  });
+  afterEach(() => {
+    audit.close();
+  });
+
+  it('round-trips parent_id through write/read', () => {
+    audit.write(v2('root', 'a', '2026-05-12T00:00:01Z'));
+    audit.write(v2('child', 'a', '2026-05-12T00:00:02Z', null, 'root'));
+    const [, child] = audit.queryByAgent('a');
+    expect(child?.parent_id).toBe('root');
+  });
+
+  it('filters by parent_id via EventFilter', () => {
+    audit.write(v2('root', 'a', '2026-05-12T00:00:01Z'));
+    audit.write(v2('c1', 'a', '2026-05-12T00:00:02Z', null, 'root'));
+    audit.write(v2('c2', 'a', '2026-05-12T00:00:03Z', null, 'root'));
+    audit.write(v2('other', 'a', '2026-05-12T00:00:04Z', null, 'somewhere-else'));
+
+    const rows = audit.query({ parent_id: 'root' });
+    expect(rows.map((r) => r.id)).toEqual(['c1', 'c2']);
+  });
+
+  it('queryChildren returns only direct children', () => {
+    audit.write(v2('root', 'a', '2026-05-12T00:00:01Z'));
+    audit.write(v2('c1', 'a', '2026-05-12T00:00:02Z', null, 'root'));
+    audit.write(v2('gc1', 'a', '2026-05-12T00:00:03Z', null, 'c1'));
+
+    expect(audit.queryChildren('root').map((r) => r.id)).toEqual(['c1']);
+  });
+
+  it('queryDescendants walks the whole causal DAG (BFS, root excluded)', () => {
+    //   root
+    //   ├─ c1
+    //   │   └─ gc1
+    //   └─ c2
+    audit.write(v2('root', 'a', '2026-05-12T00:00:01Z'));
+    audit.write(v2('c1', 'a', '2026-05-12T00:00:02Z', null, 'root'));
+    audit.write(v2('c2', 'a', '2026-05-12T00:00:03Z', null, 'root'));
+    audit.write(v2('gc1', 'a', '2026-05-12T00:00:04Z', null, 'c1'));
+
+    const ids = audit.queryDescendants('root').map((r) => r.id);
+    expect(ids).toContain('c1');
+    expect(ids).toContain('c2');
+    expect(ids).toContain('gc1');
+    expect(ids).not.toContain('root');
+    expect(ids).toHaveLength(3);
+  });
+
+  it('queryDescendants honors maxDepth', () => {
+    audit.write(v2('root', 'a', '2026-05-12T00:00:01Z'));
+    audit.write(v2('c1', 'a', '2026-05-12T00:00:02Z', null, 'root'));
+    audit.write(v2('gc1', 'a', '2026-05-12T00:00:03Z', null, 'c1'));
+
+    const ids = audit.queryDescendants('root', { maxDepth: 1 }).map((r) => r.id);
+    expect(ids).toEqual(['c1']);
+  });
+
+  it('queryDescendants is cycle-safe', () => {
+    // Pathological: a <-> b cycle. Should terminate, visiting each once.
+    audit.write(v2('a', 'ag', '2026-05-12T00:00:01Z', null, 'b'));
+    audit.write(v2('b', 'ag', '2026-05-12T00:00:02Z', null, 'a'));
+
+    const ids = audit.queryDescendants('a').map((r) => r.id);
+    expect(ids).toEqual(['b']);
   });
 });

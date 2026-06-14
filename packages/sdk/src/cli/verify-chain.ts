@@ -17,10 +17,10 @@ import { AuditLog } from '@heybeaux/sonder-core';
 import { verifyChain, loadPublicKeyFromBase64 } from '../verify-chain.js';
 
 interface ParsedArgs {
-  agentId?: string;
-  db?: string;
-  pubKey?: string;
-  pubKeyFile?: string;
+  agentId?: string | undefined;
+  db?: string | undefined;
+  pubKey?: string | undefined;
+  pubKeyFile?: string | undefined;
   json: boolean;
   help: boolean;
 }

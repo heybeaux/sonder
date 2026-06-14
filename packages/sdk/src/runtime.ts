@@ -37,6 +37,11 @@ export interface SonderRuntime {
   bus: SonderBus;
   /** v2 emit pipeline — redact → enforce → validate-L0 → hash → sign → persist. */
   emit: EmitPipeline['emit'];
+  /**
+   * Phase 3.5 — emit a typed post-execution outcome event chained to a
+   * decision event. Same signing pipeline as `emit`.
+   */
+  emitOutcome: EmitPipeline['emitOutcome'];
   /** Base64 ed25519 public key (Spec 2 R10). */
   publicKey: string;
   /** ISO8601 of keypair creation. */
@@ -91,6 +96,7 @@ export function createRuntime(config: RuntimeConfig = {}): SonderRuntime {
   return {
     bus,
     emit: pipeline.emit.bind(pipeline),
+    emitOutcome: pipeline.emitOutcome.bind(pipeline),
     publicKey: keypair.publicKeyBase64,
     keyCreatedAt: keypair.createdAt,
     shutdown() {

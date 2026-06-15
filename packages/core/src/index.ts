@@ -85,3 +85,15 @@ export type {
 } from './redact.js';
 
 export { createEventId } from './ulid.js';
+
+export {
+  toAopEvent,
+  projectGovernanceObservation,
+  AOP_VERSION,
+} from './aop.js';
+export type {
+  AopEvent,
+  AopTraceContext,
+  ToAopOptions,
+  AopGovernanceObservation,
+} from './aop.js';

@@ -104,6 +104,17 @@ This rides cleanly on ADR 0001: the State Contract ≈ A2A Agent Card, so capabi
 - **Name → AOP (Agent Observation Protocol).** Neutral, infrastructure-flavored name rather than the Sonder brand. Costs nothing now and keeps the land-grab option open without a later rename across schema, proto, and docs.
 - **Protobuf → in v0.1.** Shipped alongside the JSON Schema (`agent_observation_event.proto`), signaling serious infra and giving cross-language codegen up front. Accepted cost: two schema sources to keep in sync.
 
-## Open question still on the table
+- **Posture → quiet moat.** Ship the impl, prove AOP by *implementing it across our own stack first*, let the spec follow adoption rather than evangelizing a standard with no users. The spec/impl split is kept clean so we can flip to land-grab later without a rewrite — the neutral AOP name and v0.1 protobuf preserve that option at zero cost.
 
-- Is standardization a *land-grab* play (publish loud, court adopters) or a *quiet moat* (ship the impl, let the spec follow adoption)? This is upstream of everything else. Current lean: **quiet-moat now, spec/impl split kept clean so we can flip to land-grab later without a rewrite.** No adopters yet means evangelizing a standard is premature; the clean split costs nothing and preserves the option.
+## Where to implement AOP next (credibility-by-dogfooding)
+
+Quiet-moat means the spec earns credibility by being emitted across real heybeaux faculties, not by a launch post. Candidate emitters, each of which proves a different conformance tier:
+
+- **Engram** — emits `memory` blocks (refs, query, confidence, dream_cycle). Proves the KNOWS faculty against a production memory system.
+- **Lattice / gate registry** — emits `governance` (contract_id, l1/l2/l3, evidence, approval_gate). Proves the DID faculty and the policy-evidence rows end-to-end.
+- **Parliament** — emits `reasoning` (neurotypes, consensus, dissent, osi, rounds). Proves the THINKS faculty from an actual multi-model debate.
+- **AWM** — emits `prediction` (Beta alpha/beta confidence). Proves the predictive faculty.
+- **ACR** — emits `capabilities` (mounted, resolution by LOD, budget). Proves CAN DO.
+- **Factory workers** — emit `intent` + `outcome` per step. Proves WILL DO + post-execution, and gives us a high-volume corpus to validate the protobuf wire path.
+
+A faculty emitting a *conformant minimal AOP event without importing Sonder* is the litmus test from above, made concrete. Each integration is a credibility datapoint; collectively they're the "reference impl" claim earned rather than asserted.

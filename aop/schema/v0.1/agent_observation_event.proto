@@ -1,0 +1,192 @@
+// Agent Observation Protocol (AOP) v0.1 — wire definition.
+//
+// Language-neutral envelope for agent COGNITIVE observability: what an agent
+// knew, was authorized to do, predicted, intended, and concluded. The cognitive
+// sibling of an OpenTelemetry span; AOP standardizes the fields the OTel GenAI
+// SIG defers to the application layer.
+//
+// This .proto is the wire/codegen surface of AOP v0.1. It mirrors
+// agent-observation-event.schema.json (JSON Schema is the human-readable spec
+// of record; this is the cross-language binary form). The two MUST stay in sync.
+//
+// Derived from Sonder's SonderEventCore (packages/core/src/types/event.ts).
+// Sonder's chain/signature fields (chain_prev_hash, chain_self_hash, signature)
+// are implementation concerns and are intentionally NOT part of this spec — a
+// conformant non-Sonder emitter is not required to chain-and-sign. Such fields
+// belong in `metadata` or a future optional AOP signing profile.
+
+syntax = "proto3";
+
+package aop.v0_1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "dev.aop/schema/v0_1;aopv0_1";
+
+// LOD (level of detail) at which a capability was resolved.
+enum LodLevel {
+  LOD_LEVEL_UNSPECIFIED = 0;
+  LOD_LEVEL_INDEX = 1;
+  LOD_LEVEL_SUMMARY = 2;
+  LOD_LEVEL_STANDARD = 3;
+  LOD_LEVEL_DEEP = 4;
+}
+
+enum CircuitState {
+  CIRCUIT_STATE_UNSPECIFIED = 0;
+  CIRCUIT_STATE_CLOSED = 1;
+  CIRCUIT_STATE_OPEN = 2;
+  CIRCUIT_STATE_HALF_OPEN = 3;
+}
+
+enum PolicyOutcome {
+  POLICY_OUTCOME_UNSPECIFIED = 0;
+  POLICY_OUTCOME_PASS = 1;
+  POLICY_OUTCOME_DENY = 2;
+  POLICY_OUTCOME_MASK = 3;
+}
+
+enum ApprovalState {
+  APPROVAL_STATE_UNSPECIFIED = 0;
+  APPROVAL_STATE_PENDING = 1;
+  APPROVAL_STATE_ALLOWED = 2;
+  APPROVAL_STATE_DENIED = 3;
+}
+
+enum DefaultAction {
+  DEFAULT_ACTION_UNSPECIFIED = 0;
+  DEFAULT_ACTION_DENY = 1;
+  DEFAULT_ACTION_ALLOW = 2;
+}
+
+// OpenTelemetry interop. Links this cognitive event to the execution-layer span
+// that ran. Makes AOP complementary to OTel, not a competitor.
+message TraceContext {
+  string trace_id = 1;
+  string span_id = 2;
+}
+
+// CAN DO — what capabilities were mounted, at what resolution, within what budget.
+message Capabilities {
+  repeated string mounted = 1;
+  map<string, LodLevel> resolution = 2;
+  double budget_used = 3;
+  double budget_limit = 4;
+}
+
+// KNOWS — what memory was consulted, and with what confidence.
+message Memory {
+  repeated string refs = 1;
+  string query = 2;
+  double confidence = 3; // [0,1]
+  string dream_cycle = 4;
+}
+
+// THINKS — what deliberation concluded, and whether there was dissent.
+message Reasoning {
+  string model = 1;
+  repeated string neurotypes = 2;
+  bool consensus = 3;
+  repeated string dissent = 4;
+  double osi = 5;
+  uint32 rounds = 6;
+}
+
+// Per-rule policy evidence.
+message PolicyEvidenceRow {
+  string rule_id = 1;
+  string rule_kind = 2;
+  string path = 3;
+  PolicyOutcome outcome = 4;
+  string matched = 5;
+  string message = 6;
+}
+
+// Pre-emit human/supervisor approval gate. When state is PENDING, a conformant
+// producer SHOULD abort before persistence and resolve out-of-band.
+message ApprovalGate {
+  ApprovalState state = 1;
+  string gate_id = 2;
+  string reason = 3;
+  DefaultAction default_action = 4;
+  google.protobuf.Timestamp expires_at = 5;
+}
+
+// DID — was the handoff valid against the state contract, and what policy
+// evidence supports that.
+message Governance {
+  string contract_id = 1;
+  bool validated = 2;
+  bool l1_pass = 3;
+  bool l2_pass = 4;
+  bool l3_pass = 5;
+  repeated string violations = 6;
+  CircuitState circuit_state = 7;
+  // '+'-joined list of policy tiers that produced evidence, e.g. "L0+L1".
+  // Absent for non-policy emitters.
+  string tier = 8;
+  // Required when tier references L1/L2/L3 (sign-refusal); optional otherwise.
+  repeated PolicyEvidenceRow evidence = 9;
+  ApprovalGate approval_gate = 10;
+}
+
+// THINKS WILL HAPPEN — predicted outcome with Bayesian (Beta) confidence.
+message Prediction {
+  string outcome = 1;
+  double confidence = 2; // [0,1]
+  double alpha = 3;
+  double beta = 4;
+  string model_id = 5;
+}
+
+// WILL DO — the planned action and its StepTrace.
+message Intent {
+  string action = 1;
+  string step_trace_id = 2;
+  bool skipped = 3;
+  string skip_reason = 4;
+  bool constraint_injected = 5;
+}
+
+// Structured post-execution outcome, written back after a gated action runs.
+// Absent on pre-execution decision events.
+message Outcome {
+  int32 exit_code = 1; // 0 = clean
+  bool is_error = 2;
+  string error = 3;
+}
+
+// The AOP envelope. Required fields: aop_version, id, agent_id, task_id, timestamp.
+message AgentObservationEvent {
+  // Spec version of this envelope. MUST be "0.1" for this schema.
+  string aop_version = 1;
+  // Globally unique event id. ULID recommended (lexically sortable).
+  string id = 2;
+  string agent_id = 3;
+  string task_id = 4;
+  // Predecessor event id — forms the causal chain.
+  string parent_id = 5;
+  google.protobuf.Timestamp timestamp = 6;
+
+  TraceContext trace_context = 7;
+
+  Capabilities capabilities = 8;
+  Memory memory = 9;
+  Reasoning reasoning = 10;
+  Governance governance = 11;
+  Prediction prediction = 12;
+  Intent intent = 13;
+
+  Outcome outcome = 14;
+  // Resources/paths this action touched (files, tables, URLs).
+  repeated string resources = 15;
+  // Filesystem paths touched. Narrower alias of resources for the file-write case.
+  repeated string paths = 16;
+
+  // Opaque action payload. Not interpreted by the spec.
+  google.protobuf.Value payload = 17;
+  // Free-form. Implementations attach impl-specific blocks here
+  // (e.g. redaction evidence, chain/signature).
+  google.protobuf.Struct metadata = 18;
+}

@@ -39,7 +39,7 @@ Litmus test: if a Python LangGraph shop can emit a conformant AOP event **withou
 
 The current `SonderEvent` is a TypeScript `interface` — implementation-bound. Step one is lifting it into a neutral, versioned schema that any language can target.
 
-Done — lifted to `aop/schema/v0.1/agent-observation-event.schema.json` (JSON Schema draft 2020-12, the OTel-style lingua franca), with a parallel protobuf deferred to v0.2 for high-volume wire use.
+Done — lifted to `aop/schema/v0.1/agent-observation-event.schema.json` (JSON Schema draft 2020-12, the OTel-style lingua franca, and the human-readable spec of record) **and** a parallel `agent_observation_event.proto` (proto3) for cross-language codegen and high-volume wire use. The two MUST stay in sync.
 
 Sketch (derived directly from today's `SonderEventCore`, made neutral and versioned — the committed file is the full version):
 
@@ -99,8 +99,11 @@ This rides cleanly on ADR 0001: the State Contract ≈ A2A Agent Card, so capabi
 3. **Conformance tiers doc** — minimal/standard/full, so non-Sonder runtimes have an on-ramp.
 4. **Capability-based routing as a Lattice RFC** — separate track, records decisions into AOP but doesn't bloat the envelope.
 
-## Open questions for Beaux
+## Decisions (2026-06-15)
 
-- Name: "AOP / Agent Observation Protocol" — or keep it under the Sonder brand as "Sonder Protocol" to avoid splitting mindshare early?
-- Do we want protobuf in v0.1 or defer to v0.2 (JSON Schema first, OTel-style)?
-- Is standardization a *land-grab* play (publish loud, court adopters) or a *quiet moat* (ship the impl, let the spec follow adoption)? That choice changes step 1's packaging.
+- **Name → AOP (Agent Observation Protocol).** Neutral, infrastructure-flavored name rather than the Sonder brand. Costs nothing now and keeps the land-grab option open without a later rename across schema, proto, and docs.
+- **Protobuf → in v0.1.** Shipped alongside the JSON Schema (`agent_observation_event.proto`), signaling serious infra and giving cross-language codegen up front. Accepted cost: two schema sources to keep in sync.
+
+## Open question still on the table
+
+- Is standardization a *land-grab* play (publish loud, court adopters) or a *quiet moat* (ship the impl, let the spec follow adoption)? This is upstream of everything else. Current lean: **quiet-moat now, spec/impl split kept clean so we can flip to land-grab later without a rewrite.** No adopters yet means evangelizing a standard is premature; the clean split costs nothing and preserves the option.

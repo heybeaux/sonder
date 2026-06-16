@@ -107,20 +107,35 @@ export function toAopEvent(event: SonderEventAny, options: ToAopOptions = {}): A
     ...rest
   } = event;
 
-  // Demote Sonder-impl fields (version, chain_*, signature) into metadata.sonder
-  // so the AOP top level carries only spec-defined fields. `rest` already
-  // excludes the destructured cognitive fields; pull the known impl keys.
+  // Quarantine EVERY non-spec field — the known Sonder-impl keys
+  // (version/chain_*/signature) plus any other producer-added field in `rest`
+  // — into metadata.sonder. The AOP spec says impl provenance MUST NOT appear
+  // at the top level, so a spec-clean envelope is the default, not an opt-in.
+  // (Previously only the four known impl keys were demoted and `rest` leaked to
+  // the top level — the spec-violation-by-default the adversarial review flagged.)
   const sonderProvenance: Record<string, unknown> = {};
   for (const key of SONDER_IMPL_KEYS) {
-    if (key in src && src[key] !== undefined) {
-      sonderProvenance[key] = src[key];
+    if (key in src && src[key] !== undefined) sonderProvenance[key] = src[key];
+  }
+  for (const [k, v] of Object.entries(rest as Record<string, unknown>)) {
+    if (v !== undefined && !(SONDER_IMPL_KEYS as readonly string[]).includes(k)) {
+      sonderProvenance[k] = v;
     }
   }
 
-  const mergedMetadata: Record<string, unknown> | undefined =
-    metadata !== undefined || Object.keys(sonderProvenance).length > 0
-      ? { ...(metadata ?? {}), ...(Object.keys(sonderProvenance).length > 0 ? { sonder: sonderProvenance } : {}) }
-      : undefined;
+  // Merge into an existing metadata.sonder namespace rather than clobbering it.
+  let mergedMetadata: Record<string, unknown> | undefined;
+  const hasProvenance = Object.keys(sonderProvenance).length > 0;
+  if (metadata !== undefined || hasProvenance) {
+    mergedMetadata = { ...(metadata ?? {}) };
+    if (hasProvenance) {
+      const existing = mergedMetadata.sonder;
+      mergedMetadata.sonder =
+        existing && typeof existing === 'object' && !Array.isArray(existing)
+          ? { ...(existing as Record<string, unknown>), ...sonderProvenance }
+          : sonderProvenance;
+    }
+  }
 
   const aop: AopEvent = {
     aop_version: AOP_VERSION,
@@ -146,15 +161,6 @@ export function toAopEvent(event: SonderEventAny, options: ToAopOptions = {}): A
 
   if (payload !== undefined) aop.payload = payload;
   if (mergedMetadata !== undefined) aop.metadata = mergedMetadata;
-
-  // `rest` holds any non-standard fields a future producer added; pass them
-  // through (schema is additionalProperties: true) minus the impl keys already
-  // demoted above.
-  const aopRecord = aop as unknown as Record<string, unknown>;
-  for (const [k, v] of Object.entries(rest as Record<string, unknown>)) {
-    if ((SONDER_IMPL_KEYS as readonly string[]).includes(k)) continue;
-    aopRecord[k] = v;
-  }
 
   return aop;
 }

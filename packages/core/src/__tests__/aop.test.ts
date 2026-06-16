@@ -115,6 +115,23 @@ describe('toAopEvent — conformance', () => {
     expect(aop.governance).toEqual(src.governance);
   });
 
+  it('quarantines unknown non-spec producer fields instead of leaking them to the top level', () => {
+    const src = { ...v2WithGovernance(), futureProducerField: 'should-not-leak' } as SonderEventV2;
+    const aop = toAopEvent(src) as unknown as Record<string, unknown>;
+    expect(aop.futureProducerField).toBeUndefined();
+    const sonder = (aop.metadata as Record<string, unknown>).sonder as Record<string, unknown>;
+    expect(sonder.futureProducerField).toBe('should-not-leak');
+    expect(validate(aop)).toBe(true);
+  });
+
+  it('merges provenance into existing metadata.sonder without clobbering caller metadata', () => {
+    // v2WithGovernance carries metadata.redaction — it must survive demotion.
+    const aop = toAopEvent(v2WithGovernance());
+    const meta = aop.metadata as Record<string, unknown>;
+    expect(meta.redaction).toBeDefined();
+    expect((meta.sonder as Record<string, unknown>).signature).toBe('cc');
+  });
+
   it('attaches trace_context when supplied (OTel interop)', () => {
     const aop = toAopEvent(v2WithGovernance(), {
       trace_context: { trace_id: 't-1', span_id: 's-1' },

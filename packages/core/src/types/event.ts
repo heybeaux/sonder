@@ -135,12 +135,14 @@ export interface SonderEventCore {
   parent_id?: string;
   timestamp: string;
 
-  capabilities: CapabilityContext;
-  memory: MemoryContext;
-  reasoning: ReasoningContext;
-  governance: GovernanceContext;
-  prediction: PredictionContext;
-  intent: IntentContext;
+  // The six faculties. Each field is contributed by one faculty's adapter.
+  // See STACK.md for the full map.
+  capabilities: CapabilityContext; // ACR        — "what I can do"
+  memory: MemoryContext; //            Engram     — "what I knew"
+  reasoning: ReasoningContext; //      Parliament — "how I decided"
+  governance: GovernanceContext; //    Lattice    — "what I'm allowed to do"
+  prediction: PredictionContext; //    LeWM       — "what I expect to happen" (faculty not yet stood up; field reserved)
+  intent: IntentContext; //            AWM        — "what I plan to do" (intent, NOT prediction — that's LeWM above)
 
   /**
    * Phase 3.5 — structured post-execution outcome (exit_code / isError /

@@ -1,9 +1,9 @@
 // Agent Observation Protocol (AOP) v0.1 — wire definition.
 //
 // Language-neutral envelope for agent COGNITIVE observability: what an agent
-// knew, was authorized to do, predicted, intended, and concluded. The cognitive
-// sibling of an OpenTelemetry span; AOP standardizes the fields the OTel GenAI
-// SIG defers to the application layer.
+// knew, was authorized to do, predicted, intended, and concluded. A separate
+// concern from execution tracing (timing/tokens/tool calls), which existing
+// platforms already cover.
 //
 // This .proto is the wire/codegen surface of AOP v0.1. It mirrors
 // agent-observation-event.schema.json (JSON Schema is the human-readable spec
@@ -60,8 +60,8 @@ enum DefaultAction {
   DEFAULT_ACTION_ALLOW = 2;
 }
 
-// OpenTelemetry interop. Links this cognitive event to the execution-layer span
-// that ran. Makes AOP complementary to OTel, not a competitor.
+// Optional link to an external execution trace, if the runtime emits one.
+// Correlates this cognitive event with timing/token tracing. Not required to conform.
 message TraceContext {
   string trace_id = 1;
   string span_id = 2;

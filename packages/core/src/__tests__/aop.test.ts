@@ -132,7 +132,7 @@ describe('toAopEvent — conformance', () => {
     expect((meta.sonder as Record<string, unknown>).signature).toBe('cc');
   });
 
-  it('attaches trace_context when supplied (OTel interop)', () => {
+  it('attaches trace_context when supplied (external trace interop)', () => {
     const aop = toAopEvent(v2WithGovernance(), {
       trace_context: { trace_id: 't-1', span_id: 's-1' },
     });

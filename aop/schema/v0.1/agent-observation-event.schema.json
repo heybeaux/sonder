@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aop.dev/schema/v0.1/agent-observation-event",
   "title": "Agent Observation Event",
-  "description": "Language-neutral envelope for agent COGNITIVE observability — what an agent knew, was authorized to do, predicted, intended, and concluded. The cognitive sibling of an OpenTelemetry span; AOP standardizes the fields the OTel GenAI SIG defers to the application layer. Derived from Sonder's SonderEventCore (packages/core/src/types/event.ts); chain/signature fields are Sonder-implementation concerns and are intentionally NOT part of this spec.",
+  "description": "Language-neutral envelope for agent COGNITIVE observability — what an agent knew, was authorized to do, predicted, intended, and concluded. A separate concern from execution tracing (timing/tokens/tool calls), which existing platforms already cover. Derived from Sonder's SonderEventCore (packages/core/src/types/event.ts); chain/signature fields are Sonder-implementation concerns and are intentionally NOT part of this spec.",
   "type": "object",
   "required": ["aop_version", "id", "agent_id", "task_id", "timestamp"],
   "additionalProperties": true,
@@ -19,7 +19,7 @@
 
     "trace_context": {
       "type": "object",
-      "description": "OpenTelemetry interop. Links this cognitive event to the execution-layer span that ran. Makes AOP complementary to OTel, not a competitor.",
+      "description": "Optional link to an external execution trace, if the runtime emits one. Correlates this cognitive event with timing/token tracing. Not required to conform.",
       "properties": {
         "trace_id": { "type": "string" },
         "span_id": { "type": "string" }

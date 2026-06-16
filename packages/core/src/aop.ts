@@ -28,7 +28,7 @@ import type {
 /** AOP spec version this projection targets. */
 export const AOP_VERSION = '0.1' as const;
 
-/** OTel interop block — links a cognitive event to its execution span. */
+/** Optional link to an external execution trace, if the runtime emits one. */
 export interface AopTraceContext {
   trace_id?: string;
   span_id?: string;
@@ -65,8 +65,8 @@ export interface AopEvent {
 }
 
 export interface ToAopOptions {
-  /** OTel trace/span IDs to attach. Sonder does not own these; the caller
-   *  (a runtime with an execution-layer tracer) supplies them. */
+  /** External execution trace/span IDs to attach. Sonder does not own these;
+   *  the caller (a runtime with an execution-layer tracer) supplies them. */
   trace_context?: AopTraceContext;
 }
 

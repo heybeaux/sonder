@@ -6,7 +6,7 @@ Sonder is the event bus that binds six independent AI agent faculties — capabi
 
 Multi-agent systems fail silently. Cemri et al. (2025) analyzed 1,600+ execution traces across 7 frameworks and found that ~79% of failures are coordination-related — specification gaps (~42%) and inter-agent misalignment (~37%) — versus only ~21% from base-model reasoning failures. State-of-the-art systems like ChatDev achieve only 25% baseline correctness. A single broken handoff cascades through a pipeline with no explanation and no way to diagnose root cause.
 
-The architectural gap is that every existing observability platform (LangSmith, Langfuse, Arize Phoenix, AgentOps) instruments the execution layer — timing, tokens, tool calls. None carry structured cognitive context: what memory was active, what the agent was permitted to do, what reasoning path was taken, whether the handoff was validated, what outcome was predicted. The OpenTelemetry GenAI SIG explicitly defers these fields to the application layer. Sonder is that layer, made infrastructure.
+The architectural gap is that every existing observability platform (LangSmith, Langfuse, Arize Phoenix, AgentOps) instruments the execution layer — timing, tokens, tool calls. None carry structured cognitive context: what memory was active, what the agent was permitted to do, what reasoning path was taken, whether the handoff was validated, what outcome was predicted. That cognitive context is exactly what you need to diagnose a coordination failure — and it evaporates the moment a turn ends. Sonder makes it a durable, queryable record.
 
 ## Core Architecture
 

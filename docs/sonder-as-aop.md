@@ -15,18 +15,11 @@ The repositioning is to split those two things explicitly:
 
 This is the move that turns Sonder from "our runtime" into "the thing everyone's runtime speaks."
 
-## The OpenTelemetry analogy
+## The wedge
 
-OTel is the precedent, and it's almost exact:
+Execution observability is solved and crowded — every platform (LangSmith, Langfuse, Arize Phoenix, AgentOps) instruments timing, tokens, and tool calls. None of them carry structured *cognitive* context: what memory was active, what the agent was permitted to do, what reasoning path was taken, whether a handoff was validated, what outcome was predicted.
 
-| OpenTelemetry | Agent Observation Protocol |
-|---|---|
-| Spec + semantic conventions (the standard) | AOP envelope schema + cognitive semantic conventions |
-| SDKs/Collector (reference impl) | Sonder (reference impl) |
-| Instruments *execution* — spans, metrics, logs | Instruments *cognition* — capability, memory, reasoning, governance, prediction, intent |
-| GenAI SIG **explicitly defers** cognitive fields to the app layer | AOP **is** that deferred layer, standardized |
-
-The wedge is that last row, and it's already in the README: OTel's own GenAI SIG punted on "what memory was active, what the agent was permitted to do, what reasoning path was taken." That's not a gap we invented — it's a gap the standards body openly declined to fill. AOP fills it, and stays *complementary* to OTel rather than competing (AOP events can carry/reference OTel trace+span IDs; an AOP event is the cognitive sibling of an OTel span).
+That's the layer AOP standardizes. It's a separate concern from execution tracing — an AOP event records *why* an agent did something, not *how fast* it ran. The two can coexist (an AOP event can reference whatever execution trace/span IDs a runtime already emits), but AOP stands on its own: the durable record of agent cognition that nothing else captures.
 
 ## Spec / impl split — what actually separates
 
@@ -39,7 +32,7 @@ Litmus test: if a Python LangGraph shop can emit a conformant AOP event **withou
 
 The current `SonderEvent` is a TypeScript `interface` — implementation-bound. Step one is lifting it into a neutral, versioned schema that any language can target.
 
-Done — lifted to `aop/schema/v0.1/agent-observation-event.schema.json` (JSON Schema draft 2020-12, the OTel-style lingua franca, and the human-readable spec of record) **and** a parallel `agent_observation_event.proto` (proto3) for cross-language codegen and high-volume wire use. The two MUST stay in sync.
+Done — lifted to `aop/schema/v0.1/agent-observation-event.schema.json` (JSON Schema draft 2020-12, the human-readable spec of record) **and** a parallel `agent_observation_event.proto` (proto3) for cross-language codegen and high-volume wire use. The two MUST stay in sync.
 
 Sketch (derived directly from today's `SonderEventCore`, made neutral and versioned — the committed file is the full version):
 
@@ -59,7 +52,7 @@ Sketch (derived directly from today's `SonderEventCore`, made neutral and versio
     "timestamp": { "type": "string", "format": "date-time" },
     "trace_context": {
       "type": "object",
-      "description": "OTel interop — link to the execution-layer span",
+      "description": "Optional link to an external execution trace (trace_id/span_id), if the runtime emits one",
       "properties": { "trace_id": {"type":"string"}, "span_id": {"type":"string"} }
     },
     "capabilities": { "$ref": "#/$defs/capabilities" },
@@ -76,7 +69,7 @@ Sketch (derived directly from today's `SonderEventCore`, made neutral and versio
 
 Two deliberate additions vs. today's interface:
 1. **`aop_version`** — the spec is now versioned at the envelope level. Non-negotiable for a standard.
-2. **`trace_context`** — explicit OTel linkage, so AOP is positioned as complementary (cognitive sibling of a span), not a rival.
+2. **`trace_context`** — optional pointer to an external execution trace, so an AOP event can be correlated with whatever timing/token tracing a runtime already does. Not required to conform.
 
 The six faculty blocks (`$defs`) port over near-verbatim from the real `SonderEventCore` — that's the proof the schema isn't a rewrite, it's a lift. The lift also carries the post-execution fields the README sketch omitted (`outcome`, `resources`, `paths`) and Lattice's policy `evidence`/`tier` and `approval_gate`.
 
